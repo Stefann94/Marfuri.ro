@@ -1,0 +1,58 @@
+# Stack complet pentru VPS Hostico vps:go0 (1 vCPU, 2 GB RAM).
+# Pornire:  docker compose --env-file .env up -d
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: bursa
+      POSTGRES_USER: bursa
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?seteaza DB_PASSWORD in .env}
+    # Setări potrivite pentru 2 GB RAM (aplicația + baza de date pe același server)
+    command: >
+      postgres -c shared_buffers=256MB -c effective_cache_size=768MB -c work_mem=8MB
+      -c maintenance_work_mem=64MB -c max_connections=40 -c random_page_cost=1.1
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bursa -d bursa"]
+      interval: 5s
+      retries: 10
+    mem_limit: 700m
+
+  migrate:
+    image: ${IMAGE_MIGRATE:-ghcr.io/OWNER/bursa-migrate:latest}
+    environment:
+      DATABASE_URL: postgres://bursa:${DB_PASSWORD}@db:5432/bursa
+    depends_on:
+      db: { condition: service_healthy }
+    restart: "no"
+
+  app:
+    image: ${IMAGE_APP:-ghcr.io/OWNER/bursa-app:latest}
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://bursa:${DB_PASSWORD}@db:5432/bursa
+      DB_POOL_MAX: "10"
+      NODE_OPTIONS: --max-old-space-size=384
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    mem_limit: 600m
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports: ["80:80", "443:443", "443:443/udp"]
+    environment:
+      DOMAIN: ${DOMAIN:?seteaza DOMAIN in .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [app]
+    mem_limit: 128m
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:

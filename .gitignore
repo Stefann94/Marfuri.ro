@@ -1,0 +1,16 @@
+node_modules
+.next
+out
+data/*.db*
+.env*.local
+.env
+next-env.d.ts
+*.tsbuildinfo
+deploy/.env
+deploy/backups
+
+# Baza de date locală (PGlite)
+data/
+
+# Documente interne (analize, specificații, prețuri) — rămân doar local
+docs/
