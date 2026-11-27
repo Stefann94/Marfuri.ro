@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { Box, Home, Paste, Plus, Truck, UserIcon, ChevronRight } from "@/components/icons";
 
 /**
@@ -51,7 +52,27 @@ export function Dropdown({
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const btn = useRef<HTMLButtonElement>(null);
+  const pop = useRef<HTMLDivElement>(null);
+  // poziția meniului: începe sub linia barei de sus; săgeata stă deasupra butonului
+  const [place, setPlace] = useState<{ top: number; arrow: number } | null>(null);
   const path = usePathname();
+
+  useLayoutEffect(() => {
+    if (!open) return setPlace(null);
+    const measure = () => {
+      const box = ref.current?.getBoundingClientRect();
+      const header = ref.current?.closest("header")?.getBoundingClientRect();
+      const b = btn.current?.getBoundingClientRect();
+      const p = pop.current?.getBoundingClientRect();
+      if (!box || !header || !b || !p) return;
+      const arrow = Math.min(Math.max(b.left + b.width / 2 - p.left, 22), p.width - 22);
+      setPlace({ top: header.bottom - box.top + 12, arrow });
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [open]);
 
   useEffect(() => setOpen(false), [path]);
 
@@ -78,19 +99,35 @@ export function Dropdown({
         aria-expanded={open}
         aria-haspopup="true"
         aria-label={label}
+        ref={btn}
         onClick={() => setOpen((o) => !o)}
         className={`${buttonClass} ${open ? openClass : ""}`}
       >
         {trigger}
       </button>
+      {/* Fundal închis, foarte ușor estompat, sub meniu (pagina din spate trece în plan secund).
+          Stă în body, sub bara de sus (z-40): un element fixed din bară ar fi limitat de backdrop-blur-ul ei. */}
+      {open &&
+        createPortal(
+          <div aria-hidden className="fixed inset-0 z-30 animate-[dd-fade_.18s_ease-out] bg-[rgb(14_16_20/0.24)] backdrop-blur-[3px]" />,
+          document.body,
+        )}
       {open && (
         <div
-          className={`absolute top-full z-50 mt-1 ${align === "right" ? "right-0" : "left-0"} ${panelClass}`}
+          ref={pop}
+          className={`absolute z-50 ${align === "right" ? "right-0" : "left-0"} ${place ? "animate-[dd-drop_.18s_ease-out]" : "invisible top-full"}`}
+          style={place ? { top: place.top } : undefined}
           onClick={(e) => {
             if ((e.target as HTMLElement).closest("a")) setOpen(false);
           }}
         >
-          {children}
+          {/* săgeata spre butonul care a deschis meniul */}
+          <span
+            aria-hidden
+            className="absolute -top-[7px] z-10 size-3.5 -translate-x-1/2 rotate-45 rounded-[3px] border-t border-l border-line bg-white"
+            style={{ left: place?.arrow ?? 24 }}
+          />
+          <div className={panelClass}>{children}</div>
         </div>
       )}
     </div>
