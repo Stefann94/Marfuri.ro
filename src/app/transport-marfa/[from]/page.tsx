@@ -9,11 +9,6 @@ import { ArrowRight } from "@/components/icons";
 import { getRef } from "@/lib/ref";
 import { featuredCities } from "@/lib/places";
 
-export const revalidate = 300;
-export const dynamicParams = true;
-export async function generateStaticParams() {
-  return [];
-}
 
 type Props = { params: Promise<{ from: string }> };
 

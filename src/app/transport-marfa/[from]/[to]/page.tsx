@@ -9,11 +9,6 @@ import { Breadcrumbs, FaqList, StatTile } from "@/components/ui";
 import { ArrowRight } from "@/components/icons";
 import { getRef } from "@/lib/ref";
 
-export const revalidate = 300;
-export const dynamicParams = true;
-export async function generateStaticParams() {
-  return [];
-}
 
 type Props = { params: Promise<{ from: string; to: string }> };
 

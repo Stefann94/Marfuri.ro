@@ -7,11 +7,6 @@ import { Breadcrumbs } from "@/components/ui";
 import { getRef } from "@/lib/ref";
 import { featuredCities, featuredCityBySlug } from "@/lib/places";
 
-export const revalidate = 300;
-export const dynamicParams = true;
-export async function generateStaticParams() {
-  return [];
-}
 
 type Props = { params: Promise<{ city: string }> };
 

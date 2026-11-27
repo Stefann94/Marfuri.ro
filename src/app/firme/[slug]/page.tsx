@@ -7,11 +7,6 @@ import { absUrl } from "@/lib/site";
 import { LoadList, TruckList } from "@/components/Listings";
 import { Breadcrumbs, JsonLd, StatTile, VerifiedBadge } from "@/components/ui";
 
-export const revalidate = 600;
-export const dynamicParams = true;
-export async function generateStaticParams() {
-  return [];
-}
 
 type Props = { params: Promise<{ slug: string }> };
 

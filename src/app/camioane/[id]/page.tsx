@@ -8,11 +8,6 @@ import { CompanyCard, RouteHero, Specs } from "@/components/Detail";
 import { Breadcrumbs } from "@/components/ui";
 import { getRef } from "@/lib/ref";
 
-export const revalidate = 300;
-export const dynamicParams = true;
-export async function generateStaticParams() {
-  return [];
-}
 
 type Props = { params: Promise<{ id: string }> };
 

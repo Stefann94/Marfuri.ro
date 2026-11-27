@@ -9,11 +9,6 @@ import { Breadcrumbs } from "@/components/ui";
 import { getRef } from "@/lib/ref";
 
 // ISR: pagina se generează la prima vizită și se reîmprospătează la 5 minute.
-export const revalidate = 300;
-export const dynamicParams = true;
-export async function generateStaticParams() {
-  return [];
-}
 
 type Props = { params: Promise<{ id: string }> };
 
