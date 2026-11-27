@@ -1,13 +1,16 @@
 import Link from "next/link";
 import { VEHICLES } from "@/lib/vehicles";
+import type { CountryItem } from "@/lib/places";
+import { PlaceField } from "./PlaceField";
+import { startPlace } from "@/lib/start-place";
 import { Field, Ico, ICONS, Skew, btnCls, inputBox, inputCls } from "./ui";
 
-export type ListParams = { fromCity?: string; toCity?: string; date?: string; vehicle?: string; weight?: number; verified?: boolean };
+export type ListParams = { from?: string; to?: string; fromCity?: string; toCity?: string; date?: string; vehicle?: string; weight?: number; verified?: boolean };
 
 /** Filtrele din stânga listelor (formular GET, merge și fără JavaScript). */
-export function ListFilters({ action, p, weightLabel }: { action: string; p: ListParams; weightLabel: string }) {
+export function ListFilters({ action, p, weightLabel, countries }: { action: string; p: ListParams; weightLabel: string; countries: CountryItem[] }) {
   const common = ["prelata", "mega", "frigorific", "box", "platforma", "duba"];
-  const n = [p.fromCity, p.toCity, p.date, p.vehicle, p.weight, p.verified].filter(Boolean).length;
+  const n = [p.from || p.fromCity, p.to || p.toCity, p.date, p.vehicle, p.weight, p.verified].filter(Boolean).length;
   return (
     <div className="lg:sticky lg:top-[173px] xl:top-[124px]">
       {/* Pe telefon filtrele stau ascunse sub un buton, ca rezultatele să apară imediat (merge fără JavaScript). */}
@@ -23,18 +26,8 @@ export function ListFilters({ action, p, weightLabel }: { action: string; p: Lis
       </label>
     <form action={action} className="hidden flex-col gap-3.5 rounded-2xl border border-[#E4E0DE] bg-white p-[18px] peer-checked:flex peer-checked:rounded-t-none peer-checked:border-t-0 lg:flex">
       <h2 className="hidden font-logo text-base font-normal tracking-normal lg:block">Filtrează</h2>
-      <Field label="De unde" htmlFor="flt-din">
-        <div className={inputBox}>
-          <Ico d={ICONS.pin} size={18} className="text-[#6B717A]" />
-          <input id="flt-din" name="oras_din" defaultValue={p.fromCity ?? ""} placeholder="Oraș" className={inputCls} />
-        </div>
-      </Field>
-      <Field label="Până unde" htmlFor="flt-spre">
-        <div className={inputBox}>
-          <Ico d={ICONS.pin} size={18} className="text-[#6B717A]" />
-          <input id="flt-spre" name="oras_spre" defaultValue={p.toCity ?? ""} placeholder="Oriunde" className={inputCls} />
-        </div>
-      </Field>
+      <PlaceField label="De unde" cityName="oras_din" countryName="din" countries={countries} defaultPlace={startPlace(p.from, p.fromCity, countries)} placeholder="Oriunde" />
+      <PlaceField label="Până unde" cityName="oras_spre" countryName="spre" countries={countries} defaultPlace={startPlace(p.to, p.toCity, countries)} placeholder="Oriunde" />
       <Field label="De la data" htmlFor="flt-data">
         <div className={inputBox}>
           <input id="flt-data" name="data" type="date" defaultValue={p.date ?? ""} className={inputCls} />
@@ -80,7 +73,7 @@ export function ListFilters({ action, p, weightLabel }: { action: string; p: Lis
         </svg>
         Arată rezultatele
       </button>
-      {(p.fromCity || p.toCity || p.date || p.vehicle || p.weight || p.verified) && (
+      {(p.from || p.to || p.fromCity || p.toCity || p.date || p.vehicle || p.weight || p.verified) && (
         <Link href={action} className="text-center text-sm font-bold text-brand-600 underline underline-offset-[3px]">
           Șterge filtrele
         </Link>

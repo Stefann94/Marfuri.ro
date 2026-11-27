@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth";
 import { LIST_SIZE, listOpenTrucks, myOpenLoads } from "@/lib/cereri";
 import { parseFilters } from "@/lib/queries";
+import { listCountries } from "@/lib/places";
 import { vehicleShort } from "@/lib/vehicles";
 import { countryName } from "@/lib/geo";
 import { fmtDate, fmtInt, fmtNum } from "@/lib/format";
@@ -26,9 +27,10 @@ export default async function AmMarfaPage({ searchParams }: { searchParams: Prom
   const verified = sp.verificat === "1";
   const newId = Number(sp.nou) || 0;
   const user = await getCurrentUser();
-  const [{ items, total }, mine] = await Promise.all([
-    listOpenTrucks({ fromCity: f.fromCity, toCity: f.toCity, date: f.date, vehicle: f.vehicle, weight: f.weight, verified, page: f.page }),
+  const [{ items, total }, mine, countries] = await Promise.all([
+    listOpenTrucks({ from: f.from, to: f.to, fromCity: f.fromCity, toCity: f.toCity, date: f.date, vehicle: f.vehicle, weight: f.weight, verified, page: f.page }),
     user ? myOpenLoads(user.company.id) : Promise.resolve([]),
+    listCountries(),
   ]);
   const myLoads = mine.map((l) => ({ id: l.id, label: `${l.fromCity} → ${l.toCity}, ${fmtDate(l.loadDate)}${l.weightT ? `, ${fmtNum(l.weightT)} t` : ""}` }));
   const pages = Math.max(1, Math.ceil(total / LIST_SIZE));
@@ -48,7 +50,7 @@ export default async function AmMarfaPage({ searchParams }: { searchParams: Prom
         sub="Transportatorii care au anunțat un camion liber, la „Caută marfă”. Acceptă unul potrivit pentru marfa ta: îi trimiți marfa, iar el primește datele tale."
       />
       <div className="grid grid-cols-1 items-start gap-[26px] pt-[26px] pb-[70px] lg:grid-cols-[280px_minmax(0,1fr)]">
-        <ListFilters action="/am-marfa" p={{ fromCity: f.fromCity, toCity: f.toCity, date: f.date, vehicle: f.vehicle, weight: f.weight, verified }} weightLabel="Capacitate de cel puțin" />
+        <ListFilters action="/am-marfa" p={{ from: f.from, to: f.to, fromCity: f.fromCity, toCity: f.toCity, date: f.date, vehicle: f.vehicle, weight: f.weight, verified }} countries={countries} weightLabel="Capacitate de cel puțin" />
         <div>
           <div className="mb-3.5 flex flex-wrap items-center justify-between gap-3">
             <b className="text-[15px] font-bold">

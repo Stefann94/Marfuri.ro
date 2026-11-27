@@ -64,6 +64,8 @@ const SearchIcon = () => (
   </svg>
 );
 
+const listCls = "pp-scroll overflow-y-auto overscroll-contain pb-1.5";
+
 const Chevron = ({ left }: { left?: boolean }) => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="shrink-0">
     <path d={left ? "m15 6-6 6 6 6" : "m9 6 6 6-6 6"} />
@@ -71,8 +73,10 @@ const Chevron = ({ left }: { left?: boolean }) => (
 );
 
 /**
- * Fereastra „De unde / Până unde”: întâi țara (cu căutare în țări și orașe), apoi, cu o glisare,
- * orașele țării alese (cu căutare și „Toată țara”). Datele vin din baza de date.
+ * Alegerea unui loc: întâi țara (cu căutare în țări și orașe), apoi, cu o glisare,
+ * orașele țării alese (cu căutare și, dacă e permis, „Toată țara”). Datele vin din baza de date.
+ * Lista are înălțime fixă și se derulează, ca fereastra să rămână mică.
+ * Folosit în hero (în HeroPopover) și în paginile de cereri (în PlaceField).
  */
 export function PlacePicker({
   which,
@@ -80,14 +84,21 @@ export function PlacePicker({
   countries,
   onPick,
   onLocate,
-  locating,
+  locating = "idle",
+  allowWhole = true,
+  listMax = 264,
 }: {
-  which: "from" | "to";
+  /** prefix unic pentru id-urile din listă */
+  which: string;
   place: Place;
   countries: CountryItem[];
   onPick: (p: Place) => void;
   onLocate?: () => void;
-  locating: "idle" | "busy" | "error";
+  locating?: "idle" | "busy" | "error";
+  /** „Toată țara” ca alegere (nu și la publicare, unde orașul e obligatoriu) */
+  allowWhole?: boolean;
+  /** înălțimea maximă a listei, în pixeli */
+  listMax?: number;
 }) {
   const startCountry = place.country ? (countries.find((c) => c.code === place.country) ?? null) : null;
   const [country, setCountry] = useState<CountryItem | null>(startCountry);
@@ -95,6 +106,7 @@ export function PlacePicker({
   const [q, setQ] = useState("");
   const [active, setActive] = useState(0);
   const input = useRef<HTMLInputElement>(null);
+  const byKeys = useRef(false);
 
   // pe calculator cursorul intră direct în căutare; pe telefon nu deschidem tastatura singuri
   useEffect(() => {
@@ -136,14 +148,23 @@ export function PlacePicker({
           ...(q.trim().length > 1 ? cityList.slice(0, 12).map((c) => ({ key: `o-${c.id}`, run: () => pickCity(c) })) : []),
         ]
       : [
-          ...(!q.trim() && country ? [{ key: "whole", run: () => pickWhole(country) }] : []),
+          ...(allowWhole && !q.trim() && country ? [{ key: "whole", run: () => pickWhole(country) }] : []),
           ...cityList.map((c) => ({ key: `o-${c.id}`, run: () => pickCity(c) })),
         ];
   const idx = (key: string) => opts.findIndex((o) => o.key === key);
 
+  // cu săgețile, rândul ales rămâne la vedere în lista care se derulează
+  const activeKey = opts[active]?.key;
+  useEffect(() => {
+    if (!byKeys.current || !activeKey) return;
+    byKeys.current = false;
+    document.getElementById(`${which}-${activeKey}`)?.scrollIntoView({ block: "nearest" });
+  }, [activeKey, which]);
+
   const onKey = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "ArrowDown" || e.key === "ArrowUp") {
       e.preventDefault();
+      byKeys.current = true;
       const n = opts.length;
       if (n) setActive((i) => (e.key === "ArrowDown" ? (i + 1) % n : (i - 1 + n) % n));
     } else if (e.key === "Enter") {
@@ -212,22 +233,23 @@ export function PlacePicker({
       )}
       {search}
 
+      {step === "countries" && onLocate && !q && (
+        <button
+          type="button"
+          onClick={onLocate}
+          disabled={locating === "busy"}
+          className="flex h-10 w-full cursor-pointer items-center gap-2.5 border-b border-[#EEE7E6] px-3.5 text-left text-sm font-extrabold text-[#B8190F] hover:bg-[#F7F4F3] disabled:cursor-wait"
+        >
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#C8201A" strokeWidth="2.4" strokeLinecap="round" aria-hidden>
+            <circle cx="12" cy="12" r="4" />
+            <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
+          </svg>
+          {locating === "busy" ? "Caut locația…" : locating === "error" ? "Nu am putut afla locația. Alege țara." : "Folosește locația mea"}
+        </button>
+      )}
+
       {step === "countries" ? (
-        <div role="listbox" id={`${which}-list`} className="pb-1.5">
-          {onLocate && !q && (
-            <button
-              type="button"
-              onClick={onLocate}
-              disabled={locating === "busy"}
-              className="flex h-10 w-full cursor-pointer items-center gap-2.5 border-b border-[#EEE7E6] px-3.5 text-left text-sm font-extrabold text-[#B8190F] hover:bg-[#F7F4F3] disabled:cursor-wait"
-            >
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#C8201A" strokeWidth="2.4" strokeLinecap="round" aria-hidden>
-                <circle cx="12" cy="12" r="4" />
-                <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
-              </svg>
-              {locating === "busy" ? "Caut locația…" : locating === "error" ? "Nu am putut afla locația. Alege țara." : "Folosește locația mea"}
-            </button>
-          )}
+        <div role="listbox" id={`${which}-list`} className={listCls} style={{ maxHeight: listMax }}>
           {matchedCountries.length > 0 && <SectionLabel>{q ? "Țări" : "Alege țara"}</SectionLabel>}
           {matchedCountries.map((c) => {
             const key = `c-${c.code}`;
@@ -258,8 +280,8 @@ export function PlacePicker({
         </div>
       ) : (
         country && (
-          <div role="listbox" id={`${which}-list`} className="pb-1.5">
-            {!q.trim() && (
+          <div role="listbox" id={`${which}-list`} className={listCls} style={{ maxHeight: listMax }}>
+            {allowWhole && !q.trim() && (
               <PickRow
                 id={`${which}-whole`}
                 selected={!!place.whole && place.country === country.code}

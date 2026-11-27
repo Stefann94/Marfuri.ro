@@ -178,3 +178,17 @@
     transform: none;
   }
 }
+
+/* Lista de țări / orașe: bară de derulare subțire, discretă. */
+.pp-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #c9c2c0 transparent;
+}
+.pp-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+.pp-scroll::-webkit-scrollbar-thumb {
+  border: 2px solid #fff;
+  border-radius: 8px;
+  background: #c9c2c0;
+}

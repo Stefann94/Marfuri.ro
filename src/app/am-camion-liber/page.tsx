@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth";
 import { LIST_SIZE, listOpenLoads } from "@/lib/cereri";
 import { parseFilters } from "@/lib/queries";
+import { listCountries } from "@/lib/places";
 import { vehicleShort } from "@/lib/vehicles";
 import { fmtDate, fmtInt, fmtNum } from "@/lib/format";
 import { MetaItem, PageHead, ReqCard, RouteLine, Skew, ago, btnCls, isFresh } from "@/components/cereri/ui";
@@ -24,9 +25,10 @@ export default async function AmCamionLiberPage({ searchParams }: { searchParams
   const f = parseFilters(sp);
   const verified = sp.verificat === "1";
   const newId = Number(sp.nou) || 0;
-  const [user, { items, total }] = await Promise.all([
+  const [user, { items, total }, countries] = await Promise.all([
     getCurrentUser(),
-    listOpenLoads({ fromCity: f.fromCity, toCity: f.toCity, date: f.date, vehicle: f.vehicle, weight: f.weight, verified, page: f.page }),
+    listOpenLoads({ from: f.from, to: f.to, fromCity: f.fromCity, toCity: f.toCity, date: f.date, vehicle: f.vehicle, weight: f.weight, verified, page: f.page }),
+    listCountries(),
   ]);
   const pages = Math.max(1, Math.ceil(total / LIST_SIZE));
   const qs = (p: number) => {
@@ -45,7 +47,7 @@ export default async function AmCamionLiberPage({ searchParams }: { searchParams
         sub="Cererile publicate de firmele cu marfă, la „Caută camion”. Acceptă una potrivită pentru camionul tău: cererea trece în „acceptată”, iar firma primește datele tale."
       />
       <div className="grid grid-cols-1 items-start gap-[26px] pt-[26px] pb-[70px] lg:grid-cols-[280px_minmax(0,1fr)]">
-        <ListFilters action="/am-camion-liber" p={{ fromCity: f.fromCity, toCity: f.toCity, date: f.date, vehicle: f.vehicle, weight: f.weight, verified }} weightLabel="Greutate până la" />
+        <ListFilters action="/am-camion-liber" p={{ from: f.from, to: f.to, fromCity: f.fromCity, toCity: f.toCity, date: f.date, vehicle: f.vehicle, weight: f.weight, verified }} countries={countries} weightLabel="Greutate până la" />
         <div>
           <div className="mb-3.5 flex flex-wrap items-center justify-between gap-3">
             <b className="text-[15px] font-bold">

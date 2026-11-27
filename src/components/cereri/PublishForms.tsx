@@ -2,11 +2,12 @@
 
 import { useActionState, useRef, useState, type ReactNode } from "react";
 import { publishLoad, publishTruck, type PublishState } from "@/lib/cereri-actions";
-import { CityField, ErrorBox, SubmitButton, type CityOpt, type CountryOpt } from "./client";
+import { ErrorBox, SubmitButton, type CountryOpt } from "./client";
+import { PlaceField } from "./PlaceField";
 import { Check, Chip, Field, FormSection, Ico, ICONS, inputBox, inputCls, ReqCard, RouteLine, MetaItem, Shield } from "./ui";
 
 type Who = { company: string; verified: boolean; name: string; phone: string };
-type Common = { who: Who; cities: CityOpt[]; countries: CountryOpt[]; today: string; vehicles: { slug: string; short: string }[] };
+type Common = { who: Who; countries: CountryOpt[]; today: string; vehicles: { slug: string; short: string }[] };
 
 const dShort = new Intl.DateTimeFormat("ro-RO", { day: "numeric", month: "short", timeZone: "UTC" });
 const fmtD = (iso: string) => (/^\d{4}-\d{2}-\d{2}$/.test(iso) ? dShort.format(new Date(`${iso}T00:00:00Z`)) : "—");
@@ -96,7 +97,7 @@ function useLive(initial: Record<string, string>) {
 
 /* ------------------------------------------------------------ Caută camion */
 
-export function PublishLoadForm({ who, cities, countries, today, vehicles }: Common) {
+export function PublishLoadForm({ who, countries, today, vehicles }: Common) {
   const [state, action] = useActionState(publishLoad, {} as PublishState);
   const { ref, v, read } = useLive({ din_oras: "", spre_oras: "", data: today, tone: "", vehicul: "prelata", pret_mod: "pret", pret: "" });
   const short = (slug: string) => vehicles.find((x) => x.slug === slug)?.short ?? slug;
@@ -108,8 +109,8 @@ export function PublishLoadForm({ who, cities, countries, today, vehicles }: Com
       <div className="rounded-2xl border border-[#E4E0DE] bg-white">
         <FormSection n={1} title="Traseu" hint="De unde se încarcă marfa și unde trebuie să ajungă.">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <CityField label="De unde" cityName="din_oras" countryName="din_tara" cities={cities} countries={countries} />
-            <CityField label="Până unde" cityName="spre_oras" countryName="spre_tara" cities={cities} countries={countries} defaultCountry="DE" />
+            <PlaceField label="De unde" cityName="din_oras" countryName="din_tara" countries={countries} required placeholder="Orașul de încărcare" />
+            <PlaceField label="Până unde" cityName="spre_oras" countryName="spre_tara" countries={countries} required placeholder="Orașul de descărcare" />
           </div>
           <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Input name="adresa_inc" label="Adresa de încărcare" optional placeholder="Strada, nr., zona industrială" />
@@ -239,7 +240,7 @@ export function PublishLoadForm({ who, cities, countries, today, vehicles }: Com
 
 /* ------------------------------------------------------------ Caută marfă */
 
-export function PublishTruckForm({ who, cities, countries, today, vehicles }: Common) {
+export function PublishTruckForm({ who, countries, today, vehicles }: Common) {
   const [state, action] = useActionState(publishTruck, {} as PublishState);
   const { ref, v, read } = useLive({ din_oras: "", liber_de: today, dest_mod: "tara", spre_tara: "RO", vehicul: "prelata", capacitate: "" });
   const anywhere = v.dest_mod === "oriunde";
@@ -250,7 +251,7 @@ export function PublishTruckForm({ who, cities, countries, today, vehicles }: Co
       <div className="rounded-2xl border border-[#E4E0DE] bg-white">
         <FormSection n={1} title="Unde e camionul" hint="Locul de unde poate pleca la încărcare.">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <CityField label="Oraș" cityName="din_oras" countryName="din_tara" cities={cities} countries={countries} />
+            <PlaceField label="Oraș" cityName="din_oras" countryName="din_tara" countries={countries} required placeholder="Unde e camionul acum" />
             <Input name="distanta" label="Distanța maximă până la încărcare" optional inputMode="numeric" placeholder="100" unit="km" />
           </div>
         </FormSection>
@@ -276,26 +277,15 @@ export function PublishTruckForm({ who, cities, countries, today, vehicles }: Co
           </div>
           {!anywhere && (
             <div className="mt-3.5 grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Field label="Țara de destinație" htmlFor="f-spre_tara">
-                <div className={inputBox}>
-                  <Ico d={ICONS.pin} size={18} className="text-[#6B717A]" />
-                  <select id="f-spre_tara" name="spre_tara" defaultValue="RO" className={`${inputCls} cursor-pointer`}>
-                    {countries.map((c) => (
-                      <option key={c.code} value={c.code}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </Field>
-              <Input name="spre_oras" label="Oraș" optional placeholder="Orice oraș din țară" list="orase-dest" />
-              <datalist id="orase-dest">
-                {cities
-                  .filter((c) => c.c === (v.spre_tara ?? "RO"))
-                  .map((c) => (
-                    <option key={c.n} value={c.n} />
-                  ))}
-              </datalist>
+              <PlaceField
+                label="Destinația"
+                cityName="spre_oras"
+                countryName="spre_tara"
+                countries={countries}
+                allowWhole
+                defaultPlace={{ text: countries.find((c) => c.code === "RO")?.name ?? "România", country: "RO", whole: true }}
+                placeholder="Țara sau orașul"
+              />
             </div>
           )}
         </FormSection>

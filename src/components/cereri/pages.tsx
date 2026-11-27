@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { COUNTRIES, CITIES } from "@/lib/geo";
+import { COUNTRIES } from "@/lib/geo";
 import { VEHICLES } from "@/lib/vehicles";
 import { Skew, btnCls } from "./ui";
 
@@ -51,7 +51,6 @@ export function NeedAccountCard({ next, what }: { next: string; what: string }) 
 
 /** Datele mici trimise formularelor (sugestii de orașe, țări, vehicule). */
 export const formData = () => ({
-  cities: CITIES.map((c) => ({ n: c.name, c: c.country })),
   countries: COUNTRIES.map((c) => ({ code: c.code, name: c.name })),
   vehicles: VEHICLES.map((v) => ({ slug: v.slug, short: v.short })),
   today: new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Bucharest" }),

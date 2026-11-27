@@ -13,10 +13,12 @@ const openLoad = () => and(eq(loads.status, "active"), gte(loads.loadDate, sql`c
 const openTruck = () =>
   and(eq(trucks.status, "active"), or(gte(trucks.availableFrom, sql`current_date - 1`), gte(trucks.availableTo, sql`current_date`)));
 
-export type ListFilters = Pick<Filters, "fromCity" | "toCity" | "date" | "vehicle" | "weight"> & { verified?: boolean; page: number };
+export type ListFilters = Pick<Filters, "from" | "to" | "fromCity" | "toCity" | "date" | "vehicle" | "weight"> & { verified?: boolean; page: number };
 
 export async function listOpenLoads(f: ListFilters) {
   const w: (SQL | undefined)[] = [openLoad()];
+  if (f.from) w.push(eq(loads.fromCountry, f.from));
+  if (f.to) w.push(eq(loads.toCountry, f.to));
   if (f.fromCity) w.push(sql`${loads.fromCitySlug} like ${slugify(f.fromCity) + "%"}`);
   if (f.toCity) w.push(sql`${loads.toCitySlug} like ${slugify(f.toCity) + "%"}`);
   if (f.date) w.push(gte(loads.loadDate, f.date));
@@ -57,6 +59,8 @@ export async function listOpenLoads(f: ListFilters) {
 
 export async function listOpenTrucks(f: ListFilters) {
   const w: (SQL | undefined)[] = [openTruck()];
+  if (f.from) w.push(eq(trucks.fromCountry, f.from));
+  if (f.to) w.push(or(eq(trucks.toCountry, f.to), sql`${trucks.toCountry} is null`));
   if (f.fromCity) w.push(sql`${trucks.fromCitySlug} like ${slugify(f.fromCity) + "%"}`);
   if (f.toCity) w.push(or(sql`${trucks.toCitySlug} like ${slugify(f.toCity) + "%"}`, sql`${trucks.toCitySlug} is null`));
   if (f.date) w.push(sql`coalesce(${trucks.availableTo}, ${trucks.availableFrom}) >= ${f.date}::date`);

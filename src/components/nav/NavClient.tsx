@@ -40,6 +40,10 @@ export function Dropdown({
   buttonClass,
   openClass = "",
   panelClass = "",
+  title,
+  meta,
+  footer,
+  width,
 }: {
   trigger: ReactNode;
   children: ReactNode;
@@ -48,7 +52,16 @@ export function Dropdown({
   align?: "left" | "right";
   buttonClass: string;
   openClass?: string;
+  /** clasele conținutului (spațiere, grilă) */
   panelClass?: string;
+  /** titlul din antetul grafit al meniului */
+  title: string;
+  /** text mic în dreapta antetului */
+  meta?: ReactNode;
+  /** bandă deschisă la culoare, jos, cu legături */
+  footer?: ReactNode;
+  /** lățimea meniului, în pixeli */
+  width: number;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -121,13 +134,22 @@ export function Dropdown({
             if ((e.target as HTMLElement).closest("a")) setOpen(false);
           }}
         >
-          {/* săgeata spre butonul care a deschis meniul */}
-          <span
-            aria-hidden
-            className="absolute -top-[7px] z-10 size-3.5 -translate-x-1/2 rotate-45 rounded-[3px] border-t border-l border-line bg-white"
-            style={{ left: place?.arrow ?? 24 }}
-          />
-          <div className={panelClass}>{children}</div>
+          {/* săgeata spre butonul care a deschis meniul, în culoarea antetului */}
+          <span aria-hidden className="absolute -top-[7px] z-10 size-[15px] -translate-x-1/2 rotate-45 rounded-[3px] bg-[#363B43]" style={{ left: place?.arrow ?? 24 }} />
+          {/* varianta A: antet grafit cu linie roșie (ca ferestrele din căutarea hero), conținut alb */}
+          <div
+            className="relative overflow-hidden rounded-[14px] border border-[#D2CBC9] bg-white shadow-[0_28px_56px_-18px_rgb(0_0_0/0.55),0_4px_14px_rgb(20_22_26/0.18)]"
+            style={{ width }}
+          >
+            <div className="flex h-[42px] items-center justify-between gap-3 border-b-[3px] border-brand-600 bg-gradient-to-b from-[#363B43] to-[#1B1E23] px-4 text-white">
+              <span className="font-logo text-xs tracking-[0.07em] uppercase">{title}</span>
+              {meta && <span className="truncate text-xs font-semibold text-[#AEB3BA]">{meta}</span>}
+            </div>
+            <div className={panelClass}>{children}</div>
+            {footer && (
+              <div className="flex items-center justify-between gap-3 border-t border-line bg-[#F7F5F4] px-4 py-3 text-[13.5px]">{footer}</div>
+            )}
+          </div>
         </div>
       )}
     </div>

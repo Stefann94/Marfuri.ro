@@ -4,6 +4,7 @@ import { filtersToQuery, hasFilters, parseFilters, searchTrucks, PAGE_SIZE } fro
 import { describeFilters } from "@/lib/describe";
 import { fmtInt } from "@/lib/format";
 import { SearchForm } from "@/components/SearchForm";
+import { listCountries } from "@/lib/places";
 import { TruckList } from "@/components/Listings";
 import { Breadcrumbs, Pagination } from "@/components/ui";
 
@@ -37,7 +38,7 @@ export default async function TrucksPage({ searchParams }: Props) {
         <Link href="/cont/inregistrare" className="btn btn-primary">+ Anunță camion liber</Link>
       </div>
       <div className="card mt-6 p-4 sm:p-5">
-        <SearchForm defaults={f} mode="trucks" />
+        <SearchForm defaults={f} mode="trucks" countries={await listCountries()} />
       </div>
       <div className="mt-6">
         <TruckList items={items} empty={<>Încearcă alte filtre sau <Link className="text-brand-700 underline" href="/cont/inregistrare">publică oferta ta de marfă</Link> și lasă transportatorii să te găsească.</>} />

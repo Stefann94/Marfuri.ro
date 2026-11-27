@@ -1,4 +1,6 @@
-import { CITIES, COUNTRIES } from "@/lib/geo";
+import type { CountryItem } from "@/lib/places";
+import { PlaceField } from "./cereri/PlaceField";
+import { startPlace } from "@/lib/start-place";
 import { VEHICLES } from "@/lib/vehicles";
 import type { Filters } from "@/lib/queries";
 import { Box, Search, Truck } from "./icons";
@@ -7,30 +9,18 @@ import { Box, Search, Truck } from "./icons";
  * Formular GET simplu, funcționează fără JavaScript.
  * Cele două butoane trimit același formular spre /marfa sau /camioane (formAction).
  */
-export function SearchForm({ defaults, mode = "both" }: { defaults?: Partial<Filters>; mode?: "both" | "loads" | "trucks" }) {
+export function SearchForm({ defaults, mode = "both", countries }: { defaults?: Partial<Filters>; mode?: "both" | "loads" | "trucks"; countries: CountryItem[] }) {
   const d = defaults ?? {};
   return (
     <form method="get" action={mode === "trucks" ? "/camioane" : "/marfa"} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_10rem_11rem_auto] lg:items-end">
-      <fieldset className="grid grid-cols-[6.5rem_1fr] gap-2">
-        <legend className="field-label">De la</legend>
-        <select name="din" defaultValue={d.from ?? ""} className="field px-2" aria-label="Țara de plecare">
-          <option value="">Oricare</option>
-          {COUNTRIES.map((c) => (
-            <option key={c.code} value={c.code}>{c.code} – {c.name}</option>
-          ))}
-        </select>
-        <input name="oras_din" defaultValue={d.fromCity} list="orase" placeholder="Oraș (opțional)" className="field" aria-label="Orașul de plecare" autoComplete="off" />
-      </fieldset>
-      <fieldset className="grid grid-cols-[6.5rem_1fr] gap-2">
-        <legend className="field-label">Până la</legend>
-        <select name="spre" defaultValue={d.to ?? ""} className="field px-2" aria-label="Țara de destinație">
-          <option value="">Oricare</option>
-          {COUNTRIES.map((c) => (
-            <option key={c.code} value={c.code}>{c.code} – {c.name}</option>
-          ))}
-        </select>
-        <input name="oras_spre" defaultValue={d.toCity} list="orase" placeholder="Oraș (opțional)" className="field" aria-label="Orașul de destinație" autoComplete="off" />
-      </fieldset>
+      <div className="min-w-0">
+        <span className="field-label">De la</span>
+        <PlaceField bare compact label="De la" cityName="oras_din" countryName="din" countries={countries} defaultPlace={startPlace(d.from, d.fromCity, countries)} placeholder="Oricare" />
+      </div>
+      <div className="min-w-0">
+        <span className="field-label">Până la</span>
+        <PlaceField bare compact label="Până la" cityName="oras_spre" countryName="spre" countries={countries} defaultPlace={startPlace(d.to, d.toCity, countries)} placeholder="Oricare" />
+      </div>
       <label className="block">
         <span className="field-label">Data</span>
         <input type="date" name="data" defaultValue={d.date} className="field" />
@@ -58,11 +48,6 @@ export function SearchForm({ defaults, mode = "both" }: { defaults?: Partial<Fil
           </button>
         )}
       </div>
-      <datalist id="orase">
-        {CITIES.map((c) => (
-          <option key={c.slug} value={c.name} />
-        ))}
-      </datalist>
     </form>
   );
 }

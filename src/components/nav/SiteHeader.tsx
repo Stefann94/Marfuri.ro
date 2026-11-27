@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import Image from "next/image";
 import {
-  Ban, Bell, Book, Box, Building, Calc, Card, Chat, ChevronDown, Doc, Fuel, Gear, Grid, Help, LogOut, Paste, Plus, RouteIcon, Shield, Star, Truck, Users,
+  ArrowRight, Ban, Bell, Book, Box, Building, Calc, Card, Chat, ChevronDown, Doc, Fuel, Gear, Grid, Help, LogOut, Paste, Plus, RouteIcon, Shield, Star, Truck, Users,
 } from "@/components/icons";
 import { Dropdown, MobileTabBar, NavLink, navTrack, skewBg } from "./NavClient";
 import { LiveTicker } from "./LiveTicker";
@@ -31,7 +31,6 @@ const ACCOUNT = [
   { href: "/cont/ajutor", label: "Ajutor", icon: Help },
 ];
 
-const panel = "rounded-2xl border border-line bg-white shadow-[0_18px_40px_rgba(20,22,26,0.16)]";
 const iconBtn = "relative flex size-11 items-center justify-center rounded-xl text-graphite transition-colors hover:bg-slate-100";
 
 function Badge({ n }: { n: number }) {
@@ -43,17 +42,32 @@ function Badge({ n }: { n: number }) {
   );
 }
 
+/** Rândul unui meniu (varianta A): plăcuță cu iconiță; la trecere și la cel evidențiat, fundal cald și bară roșie. */
 function MenuRow({ href, icon, title, text, highlight }: { href: string; icon: ReactNode; title: string; text?: string; highlight?: boolean }) {
   return (
-    <Link href={href} className={`flex items-center gap-3 rounded-xl p-3 transition-colors hover:bg-brand-50 ${highlight ? "bg-brand-50/70" : ""}`}>
-      <span className={`flex size-10 shrink-0 items-center justify-center rounded-[10px] ${highlight ? "bg-brand-100 text-brand-600" : "bg-slate-100 text-graphite"}`}>{icon}</span>
-      <span className="flex flex-col gap-0.5">
-        <span className="text-[15px] font-bold text-ink">{title}</span>
-        {text && <span className="text-[13px] text-muted">{text}</span>}
+    <Link
+      href={href}
+      className={`relative flex items-center gap-3 rounded-[10px] px-3 py-[11px] transition-colors before:absolute before:top-[9px] before:bottom-[9px] before:left-0 before:w-[3px] before:rounded-r-[3px] before:bg-brand-600 after:absolute after:top-[9px] after:right-0 after:bottom-[9px] after:w-[3px] after:rounded-l-[3px] after:bg-brand-600 hover:bg-[#F7F4F3] hover:before:opacity-100 hover:after:opacity-100 ${
+        highlight ? "bg-[#F7F4F3] before:opacity-100 after:opacity-100" : "before:opacity-0 after:opacity-0"
+      }`}
+    >
+      <span
+        className={`flex size-10 shrink-0 items-center justify-center rounded-[10px] ${
+          highlight ? "bg-gradient-to-b from-[#DC2A21] to-[#B8190F] text-white" : "bg-[#EEEAE9] text-graphite"
+        }`}
+      >
+        {icon}
+      </span>
+      <span className="flex min-w-0 flex-col">
+        <span className="text-[15px] leading-tight font-bold text-ink">{title}</span>
+        {text && <span className="mt-0.5 text-[13px] leading-snug text-muted">{text}</span>}
       </span>
     </Link>
   );
 }
+
+/** Legătura roșie din subsolul unui meniu. */
+const footLink = "inline-flex items-center gap-1.5 font-extrabold text-brand-700 hover:text-brand-800";
 
 function ToolsMenu() {
   return (
@@ -69,15 +83,23 @@ function ToolsMenu() {
           <span className="relative mt-0.5 text-[11px] wide:text-xs font-semibold whitespace-nowrap text-[#9AA0A8]">calculatoare, rute</span>
         </>
       }
-      panelClass={`${panel} grid w-[520px] grid-cols-2 gap-1 p-2.5`}
+      title="Instrumente gratuite"
+      meta={`${TOOLS.length} unelte`}
+      width={560}
+      panelClass="grid grid-cols-2 gap-0.5 p-2"
+      footer={
+        <Link href="/ghiduri" className={`${footLink} w-full justify-between`}>
+          <span className="flex items-center gap-2">
+            <Book width={17} height={17} />
+            Ghiduri pentru transportatori și expeditori
+          </span>
+          <ArrowRight width={16} height={16} className="text-ink" />
+        </Link>
+      }
     >
       {TOOLS.map((t, i) => (
         <MenuRow key={t.href} href={t.href} icon={<t.icon />} title={t.title} text={t.text} highlight={i === 0} />
       ))}
-      <Link href="/ghiduri" className="col-span-2 mt-1 flex items-center justify-between border-t border-line px-3.5 pt-3 pb-1.5 text-sm font-bold text-brand-600">
-        <span className="flex items-center gap-2"><Book width={18} height={18} />Ghiduri pentru transportatori și expeditori</span>
-        <span aria-hidden>→</span>
-      </Link>
     </Dropdown>
   );
 }
@@ -104,7 +126,10 @@ function PublishMenu({ loggedIn }: { loggedIn: boolean }) {
           </span>
         </>
       }
-      panelClass={`${panel} ${loggedIn ? "w-[360px] p-2" : "w-[420px] p-4"}`}
+      title={loggedIn ? "Ce publici?" : "Ce vrei să publici?"}
+      meta="gratuit"
+      width={loggedIn ? 380 : 420}
+      panelClass={loggedIn ? "p-2" : "p-3"}
     >
       {loggedIn ? (
         <>
@@ -113,17 +138,16 @@ function PublishMenu({ loggedIn }: { loggedIn: boolean }) {
           <MenuRow href="/publica/whatsapp" icon={<Paste />} title="Lipește din WhatsApp" text="Lipești textul, formularul se completează singur" />
         </>
       ) : (
-        <div className="flex flex-col gap-2.5">
-          <p className="text-[13px] font-bold tracking-[0.08em] text-muted uppercase">Ce vrei să publici?</p>
-          <Link href="/cauta-camion" className="flex items-center gap-3.5 rounded-2xl border-2 border-brand-600 p-3.5 hover:bg-brand-50">
-            <span className="flex size-[46px] items-center justify-center rounded-xl bg-brand-600 text-white"><Box width={24} height={24} /></span>
-            <span><span className="block font-bold text-ink">Am marfă de transportat</span><span className="text-[13px] text-muted">Transportatorii te sună direct</span></span>
+        <div className="flex flex-col gap-2">
+          <Link href="/cauta-camion" className="flex items-center gap-3.5 rounded-xl border-[1.5px] border-brand-600 bg-[#FFF8F7] p-3.5 hover:bg-brand-50">
+            <span className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-b from-[#DC2A21] to-[#B8190F] text-white"><Box width={24} height={24} /></span>
+            <span><span className="block text-[15px] font-bold text-ink">Am marfă de transportat</span><span className="text-[13px] text-muted">Transportatorii te sună direct</span></span>
           </Link>
-          <Link href="/cauta-marfa" className="flex items-center gap-3.5 rounded-2xl border border-line p-3.5 hover:bg-slate-50">
-            <span className="flex size-[46px] items-center justify-center rounded-xl bg-graphite text-white"><Truck width={24} height={24} /></span>
-            <span><span className="block font-bold text-ink">Am camion liber</span><span className="text-[13px] text-muted">Primești marfă potrivită pe ruta ta</span></span>
+          <Link href="/cauta-marfa" className="flex items-center gap-3.5 rounded-xl border-[1.5px] border-line p-3.5 hover:border-[#CFC8C6] hover:bg-[#F7F4F3]">
+            <span className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-graphite text-white"><Truck width={24} height={24} /></span>
+            <span><span className="block text-[15px] font-bold text-ink">Am camion liber</span><span className="text-[13px] text-muted">Primești marfă potrivită pe ruta ta</span></span>
           </Link>
-          <p className="text-[13px] text-muted">Publicarea e gratuită. Contul îl faci în timpul publicării, în mai puțin de un minut.</p>
+          <p className="mx-1.5 mt-1 text-[13px] text-muted">Contul îl faci în timpul publicării, în mai puțin de un minut.</p>
         </div>
       )}
     </Dropdown>
@@ -141,36 +165,49 @@ function NotificationsMenu({ user }: { user: NavUser }) {
       buttonClass={iconBtn}
       openClass="bg-brand-100 text-brand-600"
       trigger={<><Bell width={22} height={22} /><Badge n={unread} /></>}
-      panelClass={`${panel} w-[400px] overflow-hidden`}
+      title="Notificări"
+      meta={unread ? `${unread} ${unread === 1 ? "nouă" : "noi"}` : undefined}
+      width={400}
+      footer={
+        <>
+          <Link href="/cont/alerte" className={footLink}>
+            Vezi toate <ArrowRight width={16} height={16} />
+          </Link>
+          <Link href="/cont/alerte" className="font-semibold text-muted hover:text-ink">
+            Marchează tot ca citit
+          </Link>
+        </>
+      }
     >
-      <div className="flex items-center justify-between border-b border-line px-4 py-3.5">
-        <span className="font-extrabold">Notificări</span>
-        <Link href="/cont/alerte" className="text-[13px] font-semibold text-brand-600">Marchează tot ca citit</Link>
-      </div>
       {user.notifications.length === 0 ? (
         <p className="px-4 py-6 text-sm text-muted">Nu ai notificări noi.</p>
       ) : (
         user.notifications.map((n) => {
           const Icon = NOTIF_ICON[n.kind];
           return (
-            <Link key={n.id} href="/cont/alerte" className={`flex gap-3 border-b border-line/70 px-4 py-3 hover:bg-slate-50 ${n.unread ? "bg-brand-50/60" : ""}`}>
-              <span className={`flex size-9 shrink-0 items-center justify-center rounded-[10px] ${n.kind === "load" ? "bg-brand-100 text-brand-600" : n.kind === "doc" ? "bg-amber-50 text-amber-700" : "bg-slate-100 text-graphite"}`}>
+            <Link
+              key={n.id}
+              href="/cont/alerte"
+              className={`relative flex gap-3 border-b border-[#EEE7E6] px-4 py-3 last:border-b-0 hover:bg-[#F7F4F3] ${
+                n.unread ? "bg-[#FFF8F7] before:absolute before:top-3 before:bottom-3 before:left-0 before:w-[3px] before:rounded-r-[3px] before:bg-brand-600" : ""
+              }`}
+            >
+              <span
+                className={`flex size-9 shrink-0 items-center justify-center rounded-[9px] ${
+                  n.kind === "load" ? "bg-gradient-to-b from-[#DC2A21] to-[#B8190F] text-white" : "bg-[#EEEAE9] text-graphite"
+                }`}
+              >
                 <Icon width={19} height={19} />
               </span>
-              <span className="flex flex-1 flex-col gap-0.5">
+              <span className="flex flex-1 flex-col">
                 <span className="text-sm font-bold text-ink">{n.title}</span>
                 <span className="text-[13px] text-muted">{n.text}</span>
-                <span className="text-xs text-slate-400">{n.when}</span>
+                <span className="mt-0.5 text-xs text-[#9AA0A8]">{n.when}</span>
               </span>
-              {n.unread && <span className="mt-1.5 size-2 rounded-full bg-brand-600" aria-label="necitit" />}
             </Link>
           );
         })
       )}
-      <div className="flex justify-between bg-slate-50 px-4 py-3 text-[13px]">
-        <Link href="/cont/alerte" className="font-bold text-brand-600">Vezi toate</Link>
-        <Link href="/cont/alerte" className="font-semibold text-muted">Setări alerte</Link>
-      </div>
     </Dropdown>
   );
 }
@@ -183,28 +220,42 @@ function AccountMenu({ user }: { user: NavUser }) {
       buttonClass="ml-1 flex items-center gap-1 rounded-full p-1 pr-1.5 text-graphite hover:bg-slate-100"
       openClass="bg-slate-100"
       trigger={<><span className="flex size-[38px] items-center justify-center rounded-full bg-graphite text-sm font-extrabold text-white">{user.initials}</span><ChevronDown /></>}
-      panelClass={`${panel} w-[320px] p-2`}
+      title="Contul meu"
+      meta={user.company}
+      width={330}
+      panelClass="p-2"
     >
-      <div className="mb-1.5 flex items-center gap-3 border-b border-line px-2.5 pt-2 pb-3">
-        <span className="flex size-[42px] items-center justify-center rounded-full bg-graphite font-extrabold text-white">{user.initials}</span>
-        <span className="flex flex-col gap-0.5">
-          <span className="font-bold">{user.company}</span>
-          {user.verified && <span className="flex items-center gap-1 text-xs font-bold text-emerald-700"><Shield width={14} height={14} />Firmă verificată</span>}
+      <div className="mb-1.5 flex items-center gap-3 border-b border-line px-3 pt-2 pb-3.5">
+        <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-graphite font-extrabold text-white">{user.initials}</span>
+        <span className="flex min-w-0 flex-col gap-0.5">
+          <span className="truncate font-bold">{user.company}</span>
+          {user.verified ? (
+            <span className="flex items-center gap-1 text-xs font-bold text-[#157F3B]">
+              <Shield width={14} height={14} />
+              Verificată ANAF
+            </span>
+          ) : (
+            <span className="text-xs font-semibold text-muted">Neverificată încă la ANAF</span>
+          )}
         </span>
       </div>
       {ACCOUNT.map((a, i) => (
-        <Link key={a.href} href={a.href} className={`flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-[15px] font-semibold text-ink hover:bg-slate-50 ${i === 0 ? "bg-brand-50/70" : ""}`}>
+        <Link
+          key={a.href}
+          href={a.href}
+          className={`flex items-center gap-3 rounded-[9px] px-3 py-[9px] text-[15px] font-semibold text-ink hover:bg-[#F7F4F3] ${i === 0 ? "bg-[#F7F4F3]" : ""}`}
+        >
           <a.icon width={19} height={19} className={i === 0 ? "text-brand-600" : "text-muted"} />
           {a.label}
         </Link>
       ))}
-      <div className="mt-1.5 border-t border-line pt-1.5">
-        <form action="/cont/iesire" method="post">
-          <button type="submit" className="flex w-full cursor-pointer items-center gap-3 rounded-[10px] px-3 py-2.5 text-[15px] font-semibold text-brand-700 hover:bg-brand-50">
-            <LogOut width={19} height={19} />Ieși din cont
-          </button>
-        </form>
-      </div>
+      <div className="mx-1 my-1.5 h-px bg-line" />
+      <form action="/cont/iesire" method="post">
+        <button type="submit" className="flex w-full cursor-pointer items-center gap-3 rounded-[9px] px-3 py-[9px] text-[15px] font-semibold text-brand-700 hover:bg-[#FFF8F7]">
+          <LogOut width={19} height={19} />
+          Ieși din cont
+        </button>
+      </form>
     </Dropdown>
   );
 }

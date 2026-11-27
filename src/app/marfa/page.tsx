@@ -5,6 +5,7 @@ import { describeFilters } from "@/lib/describe";
 import { fmtInt } from "@/lib/format";
 import { routePath } from "@/lib/geo";
 import { SearchForm } from "@/components/SearchForm";
+import { listCountries } from "@/lib/places";
 import { LoadList } from "@/components/Listings";
 import { Breadcrumbs, Pagination } from "@/components/ui";
 
@@ -39,7 +40,7 @@ export default async function LoadsPage({ searchParams }: Props) {
         <Link href="/cont/inregistrare" className="btn btn-accent">+ Publică marfă gratuit</Link>
       </div>
       <div className="card mt-6 p-4 sm:p-5">
-        <SearchForm defaults={f} mode="loads" />
+        <SearchForm defaults={f} mode="loads" countries={await listCountries()} />
       </div>
       {f.from && f.to && !f.fromCity && !f.toCity && (
         <p className="mt-4 text-sm text-slate-600">

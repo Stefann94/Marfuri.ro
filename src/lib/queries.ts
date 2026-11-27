@@ -411,8 +411,35 @@ export function sitemapData() {
 }
 
 /** Catalogul de firme: întâi cele verificate, apoi cele cu cele mai multe oferte active. */
-export function listCompanies(limit = 60) {
-  return memo(`companies:${limit}`, 300_000, () =>
+export type CompanyFilters = { q?: string; kind?: string; country?: string; city?: string; minFleet?: number; verified?: boolean; page: number };
+export const COMPANIES_PAGE = 20;
+
+/** Catalogul de firme, cu filtre; firmele verificate întâi. Cu numărul cererilor active ale fiecărei firme. */
+export async function searchCompanies(f: CompanyFilters) {
+  const w: (SQL | undefined)[] = [];
+  const clean = (t: string) => t.replace(/[%_\\]/g, "");
+  const q = clean(f.q?.trim() ?? "");
+  if (q) {
+    // după nume sau după cifrele codului fiscal (cu sau fără „RO”)
+    const digits = q.replace(/[^0-9]/g, "");
+    w.push(
+      or(
+        sql`${companies.name} ilike ${`%${q}%`}`,
+        digits.length >= 2 ? sql`regexp_replace(coalesce(${companies.vatCode}, ''), '[^0-9]', '', 'g') like ${`${digits}%`}` : undefined,
+      ),
+    );
+  }
+  if (f.kind) w.push(eq(companies.kind, f.kind));
+  if (f.country) w.push(eq(companies.country, f.country));
+  if (f.city) w.push(sql`${companies.city} ilike ${clean(f.city)}`);
+  if (f.minFleet) w.push(gte(companies.fleetSize, f.minFleet));
+  if (f.verified) w.push(sql`${companies.verifiedAt} is not null`);
+  const where = and(...w);
+  const active = sql<number>`(
+    (select count(*) from ${loads} where ${loads.companyId} = ${companies.id} and ${loads.status} = 'active')
+    + (select count(*) from ${trucks} where ${trucks.companyId} = ${companies.id} and ${trucks.status} = 'active')
+  )::int`;
+  const [items, [{ total }]] = await Promise.all([
     db
       .select({
         slug: companies.slug,
@@ -420,11 +447,18 @@ export function listCompanies(limit = 60) {
         city: companies.city,
         country: companies.country,
         kind: companies.kind,
+        vatCode: companies.vatCode,
         verified: sql<boolean>`${companies.verifiedAt} is not null`,
         fleetSize: companies.fleetSize,
+        since: sql<number>`extract(year from ${companies.createdAt})::int`,
+        active,
       })
       .from(companies)
+      .where(where)
       .orderBy(sql`${companies.verifiedAt} is null`, companies.name)
-      .limit(limit),
-  );
+      .limit(COMPANIES_PAGE)
+      .offset((f.page - 1) * COMPANIES_PAGE),
+    db.select({ total: count() }).from(companies).where(where),
+  ]);
+  return { items, total };
 }

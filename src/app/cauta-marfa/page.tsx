@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { getCurrentUser } from "@/lib/auth";
+import { listCountries } from "@/lib/places";
 import { PageHead } from "@/components/cereri/ui";
 import { CereriShell, NeedAccountCard, formData } from "@/components/cereri/pages";
 import { PublishTruckForm } from "@/components/cereri/PublishForms";
@@ -20,7 +21,7 @@ export default async function CautaMarfaPage() {
         sub="Spui unde e camionul și când e liber. Firmele cu marfă te văd la „Am marfă de transportat” și te pot accepta; tu primești datele lor și detaliile mărfii."
       />
       {user ? (
-        <PublishTruckForm who={{ company: user.company.name, verified: user.company.verified, name: user.name, phone: user.phone }} {...formData()} />
+        <PublishTruckForm who={{ company: user.company.name, verified: user.company.verified, name: user.name, phone: user.phone }} {...formData()} countries={await listCountries()} />
       ) : (
         <NeedAccountCard next="/cauta-marfa" what="anunți camionul liber" />
       )}

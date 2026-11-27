@@ -4,6 +4,7 @@ import localFont from "next/font/local";
 import "./globals.css";
 import { SITE } from "@/lib/site";
 import { SiteFooter } from "@/components/SiteChrome";
+import { ScrollToTop } from "@/components/ScrollToTop";
 import { SiteHeader, type NavUser } from "@/components/nav/SiteHeader";
 import { getCurrentUser, initials } from "@/lib/auth";
 
@@ -46,6 +47,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <a href="#continut" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-lg focus:bg-white focus:px-3 focus:py-2">
           Sari la conținut
         </a>
+        <ScrollToTop />
         <SiteHeader user={navUser} />
         <main id="continut" className="flex-1">
           {children}

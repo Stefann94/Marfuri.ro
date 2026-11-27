@@ -1,83 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useActionState, useEffect, useRef, useState, type ReactNode } from "react";
 import { useFormStatus } from "react-dom";
 import { acceptLoad, acceptTruck, type AcceptState } from "@/lib/cereri-actions";
 import { Check, Field, Ico, ICONS, Skew, btnCls, inputBox, inputCls } from "./ui";
 
-export type CityOpt = { n: string; c: string };
 export type CountryOpt = { code: string; name: string };
-
-/** Oraș (cu sugestii din nomenclator) + țara; alegerea unui oraș cunoscut potrivește singură țara. */
-export function CityField({
-  label,
-  cityName,
-  countryName,
-  cities,
-  countries,
-  defaultCity = "",
-  defaultCountry = "RO",
-  placeholder,
-  required = true,
-  optional,
-}: {
-  label: string;
-  cityName: string;
-  countryName: string;
-  cities: CityOpt[];
-  countries: CountryOpt[];
-  defaultCity?: string;
-  defaultCountry?: string;
-  placeholder?: string;
-  required?: boolean;
-  optional?: boolean;
-}) {
-  const id = useId();
-  const [country, setCountry] = useState(defaultCountry);
-  const onCity = (v: string) => {
-    const hit = cities.find((c) => c.n.toLowerCase() === v.trim().toLowerCase());
-    if (hit) setCountry(hit.c);
-  };
-  return (
-    <Field label={label} optional={optional} htmlFor={`${id}-c`}>
-      <div className={inputBox}>
-        <Ico d={ICONS.pin} size={18} className="text-[#6B717A]" />
-        <input
-          id={`${id}-c`}
-          name={cityName}
-          list={`${id}-l`}
-          defaultValue={defaultCity}
-          required={required}
-          placeholder={placeholder ?? "Scrie orașul"}
-          autoComplete="off"
-          onChange={(e) => onCity(e.target.value)}
-          className={inputCls}
-        />
-        <select
-          name={countryName}
-          value={country}
-          onChange={(e) => setCountry(e.target.value)}
-          aria-label={`Țara (${label.toLowerCase()})`}
-          className="max-w-[96px] cursor-pointer rounded-[5px] bg-[#EEEAE9] px-1.5 py-1 text-xs font-extrabold tracking-[0.04em] text-graphite outline-none"
-        >
-          {countries.map((c) => (
-            <option key={c.code} value={c.code}>
-              {c.code} · {c.name}
-            </option>
-          ))}
-        </select>
-      </div>
-      <datalist id={`${id}-l`}>
-        {cities.map((c) => (
-          <option key={`${c.c}-${c.n}`} value={c.n}>
-            {c.c}
-          </option>
-        ))}
-      </datalist>
-    </Field>
-  );
-}
 
 export function SubmitButton({ children, size = "lg", full = true }: { children: ReactNode; size?: "md" | "lg"; full?: boolean }) {
   const { pending } = useFormStatus();

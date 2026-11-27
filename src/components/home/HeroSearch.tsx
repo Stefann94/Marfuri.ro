@@ -6,6 +6,7 @@ import { VEHICLES } from "@/lib/vehicles";
 import { fmtInt } from "@/lib/format";
 import type { CountryItem } from "@/lib/places";
 import { Bell, Box, Calendar, ChevronDown, Pin, Search, Truck } from "@/components/icons";
+import { VehicleIcon } from "@/components/VehicleIcon";
 import { Chip, HeroPopover, PickRow } from "./HeroPopover";
 import { PlacePicker, type Place } from "./PlacePicker";
 
@@ -532,7 +533,7 @@ export function HeroSearch({ loads, trucks, countries }: { loads: number; trucks
                   setOpen(null);
                 }}
               >
-                <Truck width={19} height={19} className={`shrink-0 ${vehicle === slug ? "text-brand-600" : "text-[#5E636B]"}`} />
+                <VehicleIcon slug={slug} width={30} height={19} className={`shrink-0 ${vehicle === slug ? "text-brand-600" : "text-[#5E636B]"}`} />
                 <span className="flex min-w-0 flex-1 flex-col py-1">
                   <span className="text-[15px] leading-tight font-bold">{slug ? truckName(slug) : "Oricare"}</span>
                   <span className="text-xs leading-snug font-medium text-[#5E636B]">{slug ? TRUCK_INFO[slug]?.[1] : "toate tipurile de camion"}</span>
