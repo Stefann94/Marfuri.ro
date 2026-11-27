@@ -14,8 +14,10 @@
     "db:seed": "node --env-file-if-exists=.env.local scripts/seed.ts"
   },
   "dependencies": {
+    "@vercel/functions": "^3.11.4",
     "drizzle-orm": "^0.45.4",
     "next": "^16.4.6",
+    "pg": "^8.23.1",
     "postgres": "^3.4.9",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
@@ -26,6 +28,7 @@
     "@electric-sql/pglite-socket": "^0.3.0",
     "@tailwindcss/postcss": "^4.3.5",
     "@types/node": "^26.6.6",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "drizzle-kit": "^0.31.11",
