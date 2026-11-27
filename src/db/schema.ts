@@ -1,4 +1,4 @@
-import { pgTable, serial, integer, varchar, char, text, real, date, timestamp, index } from "drizzle-orm/pg-core";
+import { pgTable, serial, integer, varchar, char, text, real, date, timestamp, index, uniqueIndex } from "drizzle-orm/pg-core";
 
 /** Firme: transportatori, expeditori (proprietari de marfă) și case de expediții. */
 export const companies = pgTable(
@@ -22,6 +22,33 @@ export const companies = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("companies_vat_idx").on(t.vatCode)],
+);
+
+/** Conturi: o persoană care lucrează pentru o firmă (identificată prin CUI). */
+export const users = pgTable(
+  "users",
+  {
+    id: serial("id").primaryKey(),
+    email: varchar("email", { length: 160 }).notNull(),
+    passwordHash: text("password_hash").notNull(),
+    name: varchar("name", { length: 120 }).notNull(),
+    phone: varchar("phone", { length: 40 }).notNull(),
+    companyId: integer("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("users_email_idx").on(t.email), index("users_company_idx").on(t.companyId)],
+);
+
+/** Sesiuni de autentificare (în cookie stă doar tokenul; aici, hash-ul lui). */
+export const sessions = pgTable(
+  "sessions",
+  {
+    id: varchar("id", { length: 64 }).primaryKey(),
+    userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("sessions_user_idx").on(t.userId)],
 );
 
 /** Oferte de marfă: cineva are marfă și caută camion. */
@@ -50,6 +77,16 @@ export const loads = pgTable(
     price: integer("price"),
     currency: char("currency", { length: 3 }).notNull().default("EUR"),
     notes: text("notes"),
+    /** cine a publicat (cont) și pe cine să sune cel care acceptă */
+    createdBy: integer("created_by").references(() => users.id, { onDelete: "set null" }),
+    contactName: varchar("contact_name", { length: 120 }),
+    contactPhone: varchar("contact_phone", { length: 40 }),
+    /** acceptare: status trece din „active” în „accepted” */
+    acceptedByCompanyId: integer("accepted_by_company_id").references(() => companies.id, { onDelete: "set null" }),
+    acceptedByUserId: integer("accepted_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+    acceptNote: text("accept_note"),
+    acceptPrice: integer("accept_price"),
     status: varchar("status", { length: 12 }).notNull().default("active"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -84,6 +121,16 @@ export const trucks = pgTable(
     capacityT: real("capacity_t"),
     ldm: real("ldm"),
     notes: text("notes"),
+    /** cine a publicat (cont) și pe cine să sune cel care acceptă */
+    createdBy: integer("created_by").references(() => users.id, { onDelete: "set null" }),
+    contactName: varchar("contact_name", { length: 120 }),
+    contactPhone: varchar("contact_phone", { length: 40 }),
+    /** acceptare: status trece din „active” în „accepted” */
+    acceptedByCompanyId: integer("accepted_by_company_id").references(() => companies.id, { onDelete: "set null" }),
+    acceptedByUserId: integer("accepted_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+    acceptNote: text("accept_note"),
+    acceptPrice: integer("accept_price"),
     status: varchar("status", { length: 12 }).notNull().default("active"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -97,5 +144,6 @@ export const trucks = pgTable(
 );
 
 export type Company = typeof companies.$inferSelect;
+export type User = typeof users.$inferSelect;
 export type Load = typeof loads.$inferSelect;
 export type Truck = typeof trucks.$inferSelect;

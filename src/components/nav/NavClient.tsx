@@ -180,10 +180,10 @@ export function MobileTabBar({
             {sheet === "publish" ? (
               <div className="flex flex-col gap-2.5">
                 <p className="text-xl font-extrabold">Ce vrei să publici?</p>
-                <SheetOption href="/publica/marfa" title="Am marfă de transportat" text="Găsesc un camion" tone="red" icon={<Box width={22} height={22} />} />
-                <SheetOption href="/publica/camion" title="Am camion liber" text="Găsesc marfă" tone="dark" icon={<Truck width={22} height={22} />} />
+                <SheetOption href="/cauta-camion" title="Caută camion" text="Publici marfa ta, transportatorii o acceptă" tone="red" icon={<Box width={22} height={22} />} />
+                <SheetOption href="/cauta-marfa" title="Caută marfă" text="Anunți camionul liber, firmele cu marfă te aleg" tone="dark" icon={<Truck width={22} height={22} />} />
                 {loggedIn && <SheetOption href="/publica/whatsapp" title="Lipește din WhatsApp" text="Se completează singur" tone="soft" icon={<Paste width={22} height={22} />} badge="Nou" />}
-                {!loggedIn && <p className="text-sm text-muted">Publicarea e gratuită. Contul îl faci în timpul publicării.</p>}
+                {!loggedIn && <p className="text-sm text-muted">Publicarea e gratuită. Ai nevoie de un cont de firmă (cu CUI), făcut într-un minut.</p>}
                 <button type="button" onClick={() => setSheet(null)} className="mt-1 min-h-12 rounded-2xl bg-slate-100 font-bold">
                   Renunță
                 </button>

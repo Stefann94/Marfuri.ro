@@ -3,7 +3,8 @@ import { Inter, Plus_Jakarta_Sans, Russo_One } from "next/font/google";
 import "./globals.css";
 import { SITE } from "@/lib/site";
 import { SiteFooter } from "@/components/SiteChrome";
-import { SiteHeader } from "@/components/nav/SiteHeader";
+import { SiteHeader, type NavUser } from "@/components/nav/SiteHeader";
+import { getCurrentUser, initials } from "@/lib/auth";
 
 const inter = Inter({ subsets: ["latin", "latin-ext"], display: "swap", variable: "--font-inter" });
 // Fontul literelor de pe logo (TIR-ul Mărfuri.ro)
@@ -32,7 +33,11 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const me = await getCurrentUser();
+  const navUser: NavUser | null = me
+    ? { company: me.company.name, initials: initials(me.company.name), verified: me.company.verified, unreadMessages: 0, notifications: [] }
+    : null;
   return (
     <html lang="ro" className={`${inter.variable} ${russo.variable} ${jakarta.variable}`}>
       {/* pe telefon lăsăm loc pentru bara de jos */}
@@ -40,8 +45,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <a href="#continut" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-lg focus:bg-white focus:px-3 focus:py-2">
           Sari la conținut
         </a>
-        {/* Conturile vin în pasul următor; până atunci meniul arată starea „fără cont”. */}
-        <SiteHeader user={null} />
+        <SiteHeader user={navUser} />
         <main id="continut" className="flex-1">
           {children}
         </main>

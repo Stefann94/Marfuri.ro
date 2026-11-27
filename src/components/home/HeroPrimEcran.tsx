@@ -95,12 +95,12 @@ export function HeroPrimEcran({ stats, cities, routes }: { stats: Stats; cities:
           <HeroSearch loads={stats.loads} trucks={stats.trucks} cities={cities} />
 
           <div className="flex flex-wrap items-center gap-4">
-            <Link href="/publica/marfa" className="group relative flex items-center gap-[9px] px-[22px] py-[13px] text-[15px] font-extrabold whitespace-nowrap text-white">
+            <Link href="/am-marfa" className="group relative flex items-center gap-[9px] px-[22px] py-[13px] text-[15px] font-extrabold whitespace-nowrap text-white">
               <Skew className="bg-gradient-to-b from-[#DC2A21] to-[#B8190F] shadow-[inset_0_0_0_2px_rgb(255_255_255/0.18)] transition-[filter] group-hover:brightness-110" />
               <Plus width={18} height={18} strokeWidth={2.6} className="relative" />
               <span className="relative">Am marfă de transportat</span>
             </Link>
-            <Link href="/publica/camion" className="group relative flex items-center gap-[9px] px-[22px] py-[13px] text-[15px] font-extrabold whitespace-nowrap text-white">
+            <Link href="/am-camion-liber" className="group relative flex items-center gap-[9px] px-[22px] py-[13px] text-[15px] font-extrabold whitespace-nowrap text-white">
               <Skew className="border-2 border-white transition-colors group-hover:bg-white/10" />
               <Truck width={18} height={18} className="relative" />
               <span className="relative">Am camion liber</span>

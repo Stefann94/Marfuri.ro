@@ -5,7 +5,7 @@ import {
   Ban, Bell, Book, Box, Building, Calc, Card, Chat, ChevronDown, Doc, Fuel, Gear, Grid, Help, LogOut, Paste, Plus, RouteIcon, Shield, Star, Truck, Users,
 } from "@/components/icons";
 import { Dropdown, MobileTabBar, NavLink, navTrack, skewBg } from "./NavClient";
-import { LiveCount, LiveTicker } from "./LiveTicker";
+import { LiveTicker } from "./LiveTicker";
 import { RoText } from "@/components/brand/RoText";
 
 export type NavNotification = { id: string; title: string; text: string; when: string; unread: boolean; kind: "load" | "offer" | "doc" | "rating" };
@@ -109,18 +109,18 @@ function PublishMenu({ loggedIn }: { loggedIn: boolean }) {
     >
       {loggedIn ? (
         <>
-          <MenuRow href="/publica/marfa" icon={<Box />} title="Publică marfă" text="În 3 pași, cu previzualizare" highlight />
-          <MenuRow href="/publica/camion" icon={<Truck />} title="Anunță camion liber" text="Din flota ta, se republică automat" />
+          <MenuRow href="/cauta-camion" icon={<Box />} title="Publică marfă" text="În 3 pași, cu previzualizare" highlight />
+          <MenuRow href="/cauta-marfa" icon={<Truck />} title="Anunță camion liber" text="Din flota ta, se republică automat" />
           <MenuRow href="/publica/whatsapp" icon={<Paste />} title="Lipește din WhatsApp" text="Lipești textul, formularul se completează singur" />
         </>
       ) : (
         <div className="flex flex-col gap-2.5">
           <p className="text-[13px] font-bold tracking-[0.08em] text-muted uppercase">Ce vrei să publici?</p>
-          <Link href="/publica/marfa" className="flex items-center gap-3.5 rounded-2xl border-2 border-brand-600 p-3.5 hover:bg-brand-50">
+          <Link href="/cauta-camion" className="flex items-center gap-3.5 rounded-2xl border-2 border-brand-600 p-3.5 hover:bg-brand-50">
             <span className="flex size-[46px] items-center justify-center rounded-xl bg-brand-600 text-white"><Box width={24} height={24} /></span>
             <span><span className="block font-bold text-ink">Am marfă de transportat</span><span className="text-[13px] text-muted">Transportatorii te sună direct</span></span>
           </Link>
-          <Link href="/publica/camion" className="flex items-center gap-3.5 rounded-2xl border border-line p-3.5 hover:bg-slate-50">
+          <Link href="/cauta-marfa" className="flex items-center gap-3.5 rounded-2xl border border-line p-3.5 hover:bg-slate-50">
             <span className="flex size-[46px] items-center justify-center rounded-xl bg-graphite text-white"><Truck width={24} height={24} /></span>
             <span><span className="block font-bold text-ink">Am camion liber</span><span className="text-[13px] text-muted">Primești marfă potrivită pe ruta ta</span></span>
           </Link>
@@ -200,9 +200,11 @@ function AccountMenu({ user }: { user: NavUser }) {
         </Link>
       ))}
       <div className="mt-1.5 border-t border-line pt-1.5">
-        <Link href="/cont/iesire" className="flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-[15px] font-semibold text-brand-700 hover:bg-brand-50">
-          <LogOut width={19} height={19} />Ieși din cont
-        </Link>
+        <form action="/cont/iesire" method="post">
+          <button type="submit" className="flex w-full cursor-pointer items-center gap-3 rounded-[10px] px-3 py-2.5 text-[15px] font-semibold text-brand-700 hover:bg-brand-50">
+            <LogOut width={19} height={19} />Ieși din cont
+          </button>
+        </form>
       </div>
     </Dropdown>
   );
@@ -301,13 +303,13 @@ export function SiteHeader({ user, sticky = true }: { user: NavUser | null; stic
 
           <nav aria-label="Principal" className="relative hidden shrink-0 items-center gap-0.5 p-1 xl:flex">
             <span aria-hidden className={navTrack} />
-            <NavLink href="/marfa" sub={<LiveCount stat="loads" label="oferte active" />}>Caută marfă</NavLink>
+            <NavLink href="/cauta-marfa" sub="pentru camionul tău">Caută marfă</NavLink>
             <NavSep />
-            <NavLink href="/camioane" sub={<LiveCount stat="trucks" label="camioane libere" />}>Caută camion</NavLink>
+            <NavLink href="/cauta-camion" sub="pentru marfa ta">Caută camion</NavLink>
             <NavSep />
             {user ? (
               <>
-                <NavLink href="/cont/anunturi" sub="ofertele tale">Anunțurile mele</NavLink>
+                <NavLink href="/cont" sub="cereri și acceptări">Contul meu</NavLink>
                 <NavSep />
                 <NavLink href="/firme" sub="verificate la ANAF">Firme</NavLink>
               </>
@@ -360,8 +362,8 @@ export function SiteHeader({ user, sticky = true }: { user: NavUser | null; stic
         <div aria-hidden className="h-0.5 bg-graphite" />
         {/* Între telefon și ecran mare: linkurile principale pe un rând care se derulează */}
         <nav aria-label="Principal (tabletă)" className="hidden justify-center gap-1 overflow-x-auto border-b border-line px-6 py-1.5 text-sm font-semibold md:flex xl:hidden">
-          <Link href="/marfa" className="rounded-lg px-3 py-2 whitespace-nowrap text-graphite hover:bg-slate-100">Caută marfă</Link>
-          <Link href="/camioane" className="rounded-lg px-3 py-2 whitespace-nowrap text-graphite hover:bg-slate-100">Caută camion</Link>
+          <Link href="/cauta-marfa" className="rounded-lg px-3 py-2 whitespace-nowrap text-graphite hover:bg-slate-100">Caută marfă</Link>
+          <Link href="/cauta-camion" className="rounded-lg px-3 py-2 whitespace-nowrap text-graphite hover:bg-slate-100">Caută camion</Link>
           <Link href="/firme" className="rounded-lg px-3 py-2 whitespace-nowrap text-graphite hover:bg-slate-100">Firme verificate</Link>
           <Link href="/instrumente" className="rounded-lg px-3 py-2 whitespace-nowrap text-graphite hover:bg-slate-100">Instrumente</Link>
           <Link href="/preturi" className="rounded-lg px-3 py-2 whitespace-nowrap text-graphite hover:bg-slate-100">Prețuri</Link>
