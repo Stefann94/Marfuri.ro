@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { countryName } from "@/lib/geo";
+import { getRef } from "@/lib/ref";
 import { fmtDateLong, fmtMonthYear } from "@/lib/format";
 import { Calendar, Lock, Pin } from "./icons";
 import { CountryTag, VerifiedBadge } from "./ui";
@@ -20,7 +20,8 @@ export function RouteHero(props: {
   );
 }
 
-function Stop({ city, country, date, dateLabel }: { city: string | null; country: string | null; date?: string; dateLabel: string }) {
+async function Stop({ city, country, date, dateLabel }: { city: string | null; country: string | null; date?: string; dateLabel: string }) {
+  const { countryName } = await getRef();
   return (
     <div className="rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-200 ring-inset">
       <p className="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-slate-500 uppercase">
@@ -52,16 +53,16 @@ export function Specs({ rows }: { rows: [string, React.ReactNode][] }) {
   );
 }
 
-const KIND: Record<string, string> = { carrier: "Transportator", forwarder: "Casă de expediții", shipper: "Expeditor / producător" };
 
-export function CompanyCard(props: { name: string; slug: string; city: string; country: string; kind: string; verifiedAt: Date | null; createdAt: Date; fleetSize?: number | null }) {
+export async function CompanyCard(props: { name: string; slug: string; city: string; country: string; kind: string; verifiedAt: Date | null; createdAt: Date; fleetSize?: number | null }) {
+  const { countryName, kindLabel } = await getRef();
   return (
     <aside className="card p-6">
       <p className="text-xs font-semibold tracking-wide text-slate-500 uppercase">Publicat de</p>
       <Link href={`/firme/${props.slug}`} className="mt-2 block text-lg font-bold text-slate-900 hover:text-brand-700">{props.name}</Link>
       <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-600">
         {props.verifiedAt && <VerifiedBadge />}
-        <span>{KIND[props.kind] ?? props.kind}</span>
+        <span>{kindLabel(props.kind)}</span>
       </div>
       <ul className="mt-4 space-y-1.5 text-sm text-slate-600">
         <li>📍 {props.city}, {countryName(props.country)}</li>

@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { citiesOf, countryBySlug, countryName, routePath } from "@/lib/geo";
 import { countryRoutes, searchLoads, searchTrucks } from "@/lib/queries";
 import { fmtInt } from "@/lib/format";
 import { LoadList, TruckList } from "@/components/Listings";
 import { Breadcrumbs } from "@/components/ui";
 import { ArrowRight } from "@/components/icons";
+import { getRef } from "@/lib/ref";
+import { featuredCities } from "@/lib/places";
 
 export const revalidate = 300;
 export const dynamicParams = true;
@@ -17,12 +18,13 @@ export async function generateStaticParams() {
 type Props = { params: Promise<{ from: string }> };
 
 async function resolve(params: Props["params"]) {
-  const c = countryBySlug((await params).from);
+  const c = (await getRef()).countryBySlug((await params).from);
   if (!c) notFound();
   return c;
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { countryName, countryBySlug, routePath } = await getRef();
   const c = await resolve(params);
   return {
     title: `Transport marfă ${c.name}: curse din și spre ${c.name}, camioane libere`,
@@ -32,6 +34,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function CountryPage({ params }: Props) {
+  const { countryName, countryBySlug, routePath } = await getRef();
   const c = await resolve(params);
   const [outbound, inbound, fromLoads, toLoads, trucksHere] = await Promise.all([
     countryRoutes(c.code, "from"),
@@ -40,7 +43,7 @@ export default async function CountryPage({ params }: Props) {
     searchLoads({ to: c.code, page: 1 }, 10),
     searchTrucks({ from: c.code, page: 1 }, 8),
   ]);
-  const cities = citiesOf(c.code);
+  const cities = (await featuredCities()).filter((x) => x.country === c.code);
 
   return (
     <div className="container-page pt-8">

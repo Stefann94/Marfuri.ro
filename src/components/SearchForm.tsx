@@ -1,7 +1,7 @@
 import type { CountryItem } from "@/lib/places";
 import { PlaceField } from "./cereri/PlaceField";
 import { startPlace } from "@/lib/start-place";
-import { VEHICLES } from "@/lib/vehicles";
+import { getRef } from "@/lib/ref";
 import type { Filters } from "@/lib/queries";
 import { Box, Search, Truck } from "./icons";
 
@@ -9,8 +9,9 @@ import { Box, Search, Truck } from "./icons";
  * Formular GET simplu, funcționează fără JavaScript.
  * Cele două butoane trimit același formular spre /marfa sau /camioane (formAction).
  */
-export function SearchForm({ defaults, mode = "both", countries }: { defaults?: Partial<Filters>; mode?: "both" | "loads" | "trucks"; countries: CountryItem[] }) {
+export async function SearchForm({ defaults, mode = "both", countries }: { defaults?: Partial<Filters>; mode?: "both" | "loads" | "trucks"; countries: CountryItem[] }) {
   const d = defaults ?? {};
+  const { vehicles: VEHICLES } = await getRef();
   return (
     <form method="get" action={mode === "trucks" ? "/camioane" : "/marfa"} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_10rem_11rem_auto] lg:items-end">
       <div className="min-w-0">

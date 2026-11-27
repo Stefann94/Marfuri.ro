@@ -11,8 +11,11 @@
  */
 import { readFileSync } from "node:fs";
 import postgres from "postgres";
-import { CITIES, COUNTRIES, POPULAR_DESTINATIONS } from "../src/lib/geo.ts";
+import { CITIES_RAW, COUNTRIES as COUNTRY_ROWS, POPULAR as POPULAR_DESTINATIONS } from "./data/nomenclatoare.ts";
 import { normalize, slugify } from "../src/lib/text.ts";
+
+const COUNTRIES = COUNTRY_ROWS.map(([code, name]) => ({ code, name, slug: slugify(name) }));
+const CITIES = CITIES_RAW.map(([country, name, lat, lng]) => ({ country, name, slug: slugify(name), lat, lng }));
 
 const MIN_RO = 1000;
 const MIN_OTHER = 15000;

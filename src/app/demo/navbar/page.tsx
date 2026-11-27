@@ -10,10 +10,10 @@ const demoUser: NavUser = {
   verified: true,
   unreadMessages: 3,
   notifications: [
-    { id: "1", kind: "load", title: "Marfă nouă pe ruta ta", text: "Cluj-Napoca → München · mâine · prelată", when: "acum 2 min", unread: true },
-    { id: "2", kind: "offer", title: "Ai primit o ofertă", text: "La cursa Arad → Stuttgart", when: "acum 15 min", unread: true },
-    { id: "3", kind: "doc", title: "Asigurarea CMR expiră în 14 zile", text: "Încarcă polița nouă ca să rămâi verificat", when: "azi", unread: false },
-    { id: "4", kind: "rating", title: "Ai primit o evaluare nouă", text: "Pentru cursa Timișoara → Köln", when: "ieri", unread: false },
+    { id: "1", kind: "load", title: "Marfă nouă pe ruta ta", text: "Cluj-Napoca → München · mâine · prelată", when: "acum 2 min", href: "/cont", unread: true },
+    { id: "2", kind: "offer", title: "Ai primit o ofertă", text: "La cursa Arad → Stuttgart", when: "acum 15 min", href: "/cont", unread: true },
+    { id: "3", kind: "doc", title: "Asigurarea CMR expiră în 14 zile", text: "Încarcă polița nouă ca să rămâi verificat", when: "azi", href: "/cont", unread: false },
+    { id: "4", kind: "rating", title: "Ai primit o evaluare nouă", text: "Pentru cursa Timișoara → Köln", when: "ieri", href: "/cont", unread: false },
   ],
 };
 

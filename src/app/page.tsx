@@ -1,45 +1,25 @@
 import Link from "next/link";
 import { connection } from "next/server";
 import { SITE, absUrl } from "@/lib/site";
-import { countryName, routePath, POPULAR_DESTINATIONS } from "@/lib/geo";
+import { getFaqs, getRef } from "@/lib/ref";
 import { fmtInt } from "@/lib/format";
 import { routeSupply, searchLoads, searchTrucks, siteStats, topRoutes } from "@/lib/queries";
 import { listCountries } from "@/lib/places";
 import { HeroPrimEcran } from "@/components/home/HeroPrimEcran";
 import { LoadList, TruckList } from "@/components/Listings";
-import { FaqList, JsonLd, type Faq } from "@/components/ui";
+import { FaqList, JsonLd } from "@/components/ui";
 import { ArrowRight, Bell, Bolt, Box, Shield, Truck } from "@/components/icons";
 
 export const metadata = {
   alternates: { canonical: "/" },
 };
 
-const FAQ: Faq[] = [
-  {
-    q: "Ce este o bursă de transport marfă?",
-    a: "O bursă de transport este o platformă online unde firmele care au marfă de transportat publică oferte, iar transportatorii publică camioanele libere. Cele două părți se găsesc după rută, dată și tipul vehiculului, apoi negociază direct.",
-  },
-  {
-    q: `Cât costă să folosesc ${SITE.name}?`,
-    a: "Crearea contului, publicarea ofertelor de marfă și a camioanelor libere sunt gratuite. Datele de contact ale firmelor sunt vizibile după autentificare.",
-  },
-  {
-    q: "Cum verificați firmele?",
-    a: "La înregistrare validăm codul fiscal (CUI) direct în baza de date publică ANAF: firma trebuie să existe și să fie activă. Firmele verificate primesc insigna „Verificată” pe toate ofertele lor.",
-  },
-  {
-    q: "Pot găsi transport pentru o cantitate mică (grupaj)?",
-    a: "Da. Poți publica oferte de marfă parțială indicând greutatea și metrii liniari (LDM), iar transportatorii cu loc disponibil pe aceeași rută te pot contacta.",
-  },
-  {
-    q: "Pentru ce țări pot publica oferte?",
-    a: "Pentru România și majoritatea țărilor europene: Germania, Italia, Franța, Ungaria, Austria, Olanda, Belgia, Spania, Polonia, Bulgaria, Republica Moldova și altele.",
-  },
-];
 
 export default async function HomePage() {
   await connection(); // conținut proaspăt la fiecare cerere; agregatele sunt în cache
-  const [stats, latestLoads, latestTrucks, routes, countries, supply] = await Promise.all([
+  const [ref, faq, stats, latestLoads, latestTrucks, routes, countries, supply] = await Promise.all([
+    getRef(),
+    getFaqs("home"),
     siteStats(),
     searchLoads({}, 8),
     searchTrucks({}, 6),
@@ -73,7 +53,7 @@ export default async function HomePage() {
       />
 
       {/* HERO: primul ecran (varianta 1) */}
-      <HeroPrimEcran stats={stats} countries={countries} routes={supply} />
+      <HeroPrimEcran stats={stats} countries={countries} routes={supply} vehicles={ref.vehicles} weights={ref.weights} />
 
       {/* ULTIMELE OFERTE */}
       <section className="container-page mt-16 grid gap-12 lg:grid-cols-[1.35fr_1fr]">
@@ -140,11 +120,11 @@ export default async function HomePage() {
           </Link>
         </div>
         <ul className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {(routes.length ? routes : POPULAR_DESTINATIONS.map((c) => ({ from: "RO", to: c, n: 0 }))).map((r) => (
+          {(routes.length ? routes : ref.popular.map((c) => ({ from: "RO", to: c, n: 0 }))).map((r) => (
             <li key={`${r.from}-${r.to}`}>
-              <Link href={routePath(r.from, r.to)} className="card group flex items-center justify-between gap-3 px-5 py-4 transition hover:border-brand-200 hover:shadow-md">
+              <Link href={ref.routePath(r.from, r.to)} className="card group flex items-center justify-between gap-3 px-5 py-4 transition hover:border-brand-200 hover:shadow-md">
                 <span className="font-semibold text-slate-900">
-                  {countryName(r.from)} <span className="text-slate-400">→</span> {countryName(r.to)}
+                  {ref.countryName(r.from)} <span className="text-slate-400">→</span> {ref.countryName(r.to)}
                 </span>
                 <span className="flex items-center gap-2 text-sm text-slate-500">
                   {r.n > 0 && <span className="tabular-nums">{fmtInt(r.n)} oferte</span>}
@@ -182,7 +162,7 @@ export default async function HomePage() {
           <h2 className="section-title mt-1">Despre bursa de transport</h2>
           <p className="mt-3 text-slate-600">Tot ce trebuie să știi înainte să publici prima ofertă.</p>
         </div>
-        <FaqList items={FAQ} />
+        <FaqList items={faq} />
       </section>
     </>
   );

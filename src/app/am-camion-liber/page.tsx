@@ -4,7 +4,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { LIST_SIZE, listOpenLoads } from "@/lib/cereri";
 import { parseFilters } from "@/lib/queries";
 import { listCountries } from "@/lib/places";
-import { vehicleShort } from "@/lib/vehicles";
+import { getRef } from "@/lib/ref";
 import { fmtDate, fmtInt, fmtNum } from "@/lib/format";
 import { MetaItem, PageHead, ReqCard, RouteLine, Skew, ago, btnCls, isFresh } from "@/components/cereri/ui";
 import { AcceptLoad } from "@/components/cereri/client";
@@ -22,7 +22,9 @@ type SP = Record<string, string | string[] | undefined>;
 
 export default async function AmCamionLiberPage({ searchParams }: { searchParams: Promise<SP> }) {
   const sp = await searchParams;
-  const f = parseFilters(sp);
+  const ref = await getRef();
+  const { vehicleShort } = ref;
+  const f = parseFilters(sp, ref);
   const verified = sp.verificat === "1";
   const newId = Number(sp.nou) || 0;
   const [user, { items, total }, countries] = await Promise.all([

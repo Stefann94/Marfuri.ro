@@ -7,7 +7,7 @@ import {
 import { Dropdown, MobileTabBar, NavLink, navTrack, skewBg } from "./NavClient";
 import { LiveTicker } from "./LiveTicker";
 
-export type NavNotification = { id: string; title: string; text: string; when: string; unread: boolean; kind: "load" | "offer" | "doc" | "rating" };
+export type NavNotification = { id: string; title: string; text: string; href: string; when: string; unread: boolean; kind: "load" | "offer" | "doc" | "rating" };
 export type NavUser = { company: string; initials: string; verified: boolean; unreadMessages: number; notifications: NavNotification[] };
 
 const TOOLS = [
@@ -173,9 +173,13 @@ function NotificationsMenu({ user }: { user: NavUser }) {
           <Link href="/cont/alerte" className={footLink}>
             Vezi toate <ArrowRight width={16} height={16} />
           </Link>
-          <Link href="/cont/alerte" className="font-semibold text-muted hover:text-ink">
-            Marchează tot ca citit
-          </Link>
+          {unread > 0 && (
+            <form action="/cont/notificari-citite" method="post">
+              <button type="submit" className="cursor-pointer font-semibold text-muted hover:text-ink">
+                Marchează tot ca citit
+              </button>
+            </form>
+          )}
         </>
       }
     >
@@ -187,7 +191,7 @@ function NotificationsMenu({ user }: { user: NavUser }) {
           return (
             <Link
               key={n.id}
-              href="/cont/alerte"
+              href={n.href}
               className={`relative flex gap-3 border-b border-[#EEE7E6] px-4 py-3 last:border-b-0 hover:bg-[#F7F4F3] ${
                 n.unread ? "bg-[#FFF8F7] before:absolute before:top-3 before:bottom-3 before:left-0 before:w-[3px] before:rounded-r-[3px] before:bg-brand-600" : ""
               }`}

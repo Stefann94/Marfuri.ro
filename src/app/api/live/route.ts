@@ -1,12 +1,12 @@
 import { latestLoads, siteStats } from "@/lib/queries";
-import { vehicleShort } from "@/lib/vehicles";
+import { getRef } from "@/lib/ref";
 
 export const dynamic = "force-dynamic";
 
 /** Date pentru banda „Bursă live” și cifrele din meniu. */
 export async function GET() {
   try {
-    const [stats, items] = await Promise.all([siteStats(), latestLoads()]);
+    const [stats, items, { vehicleShort }] = await Promise.all([siteStats(), latestLoads(), getRef()]);
     return Response.json(
       {
         stats,

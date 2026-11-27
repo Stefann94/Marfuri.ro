@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { COUNTRIES, POPULAR_DESTINATIONS, countryName, countryPath, routePath } from "@/lib/geo";
 import { Breadcrumbs } from "@/components/ui";
 import { ArrowRight } from "@/components/icons";
+import { getRef } from "@/lib/ref";
 
 export const metadata: Metadata = {
   title: "Rute de transport marfă în Europa – România, Germania, Italia și altele",
@@ -10,7 +10,8 @@ export const metadata: Metadata = {
   alternates: { canonical: "/transport-marfa" },
 };
 
-export default function RoutesIndexPage() {
+export default async function RoutesIndexPage() {
+  const { countryName, countryPath, routePath, popular: POPULAR_DESTINATIONS, countries: COUNTRIES } = await getRef();
   return (
     <div className="container-page pt-8">
       <Breadcrumbs items={[{ name: "Rute", href: "/transport-marfa" }]} />

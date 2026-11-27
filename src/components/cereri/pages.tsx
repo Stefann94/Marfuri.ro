@@ -1,7 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { COUNTRIES } from "@/lib/geo";
-import { VEHICLES } from "@/lib/vehicles";
+import { getRef } from "@/lib/ref";
 import { Skew, btnCls } from "./ui";
 
 /** Fundalul și lățimea paginilor de cereri (ca în machete). */
@@ -49,9 +48,12 @@ export function NeedAccountCard({ next, what }: { next: string; what: string }) 
   );
 }
 
-/** Datele mici trimise formularelor (sugestii de orașe, țări, vehicule). */
-export const formData = () => ({
-  countries: COUNTRIES.map((c) => ({ code: c.code, name: c.name })),
-  vehicles: VEHICLES.map((v) => ({ slug: v.slug, short: v.short })),
-  today: new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Bucharest" }),
-});
+/** Datele mici trimise formularelor (țări, tipuri de camion), din baza de date. */
+export async function formData() {
+  const ref = await getRef();
+  return {
+    countries: ref.countries.map((c) => ({ code: c.code, name: c.name })),
+    vehicles: ref.vehicles.map((v) => ({ slug: v.slug, short: v.short })),
+    today: new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Bucharest" }),
+  };
+}

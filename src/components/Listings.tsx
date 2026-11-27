@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { LoadListItem, TruckListItem } from "@/lib/queries";
 import { fmtDate, fmtNum, fmtPrice } from "@/lib/format";
-import { vehicleShort } from "@/lib/vehicles";
+import { getRef } from "@/lib/ref";
 import { ArrowRight } from "./icons";
 import { EmptyState, Place, VerifiedBadge } from "./ui";
 
@@ -18,7 +18,8 @@ function Route({ a, b }: { a: React.ReactNode; b: React.ReactNode }) {
   );
 }
 
-export function LoadList({ items, empty }: { items: LoadListItem[]; empty?: React.ReactNode }) {
+export async function LoadList({ items, empty }: { items: LoadListItem[]; empty?: React.ReactNode }) {
+  const { vehicleShort } = await getRef();
   if (items.length === 0) return <EmptyState title="Nicio ofertă de marfă activă aici">{empty}</EmptyState>;
   return (
     <div className="card overflow-hidden">
@@ -61,7 +62,8 @@ export function LoadList({ items, empty }: { items: LoadListItem[]; empty?: Reac
   );
 }
 
-export function TruckList({ items, empty }: { items: TruckListItem[]; empty?: React.ReactNode }) {
+export async function TruckList({ items, empty }: { items: TruckListItem[]; empty?: React.ReactNode }) {
+  const { vehicleShort } = await getRef();
   if (items.length === 0) return <EmptyState title="Niciun camion liber aici">{empty}</EmptyState>;
   return (
     <div className="card overflow-hidden">

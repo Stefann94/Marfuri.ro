@@ -1,6 +1,5 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { countryName } from "@/lib/geo";
 
 /* Componentele paginilor de cereri (Caută camion / Caută marfă / Am camion liber / Am marfă),
    în stilul machetelor alese: alb + grafit + roșu, Russo One la titluri, butoane înclinate. */
@@ -181,7 +180,8 @@ export function MetaItem({ icon, children }: { icon: keyof typeof ICONS; childre
   );
 }
 
-export function RouteLine({ from, fromCc, to, toCc, anyDest, isNew }: { from: string; fromCc: string; to?: string | null; toCc?: string | null; anyDest?: boolean; isNew?: boolean }) {
+/** Ruta unei cereri. `toName` (numele țării) se afișează când lipsește orașul de destinație. */
+export function RouteLine({ from, fromCc, to, toCc, toName, anyDest, isNew }: { from: string; fromCc: string; to?: string | null; toCc?: string | null; toName?: string; anyDest?: boolean; isNew?: boolean }) {
   return (
     <>
       {from}
@@ -191,7 +191,7 @@ export function RouteLine({ from, fromCc, to, toCc, anyDest, isNew }: { from: st
         <span className="font-bold text-[#6B717A]">Orice destinație</span>
       ) : (
         <>
-          {to || countryName(toCc)}
+          {to || toName || toCc}
           <CC code={toCc ?? null} />
         </>
       )}

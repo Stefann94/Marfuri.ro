@@ -6,9 +6,13 @@ import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { sql } from "drizzle-orm";
 import { companies, loads, trucks } from "../src/db/schema.ts";
-import { CITIES, COUNTRIES, haversineKm, type City } from "../src/lib/geo.ts";
-import { VEHICLES } from "../src/lib/vehicles.ts";
+import { haversineKm } from "../src/lib/geo.ts";
 import { slugify } from "../src/lib/text.ts";
+import { CITIES_RAW, COUNTRIES, VEHICLE_TYPES } from "./data/nomenclatoare.ts";
+
+type City = { name: string; slug: string; country: string; lat: number; lng: number };
+const CITIES: City[] = CITIES_RAW.map(([country, name, lat, lng]) => ({ country, name, slug: slugify(name), lat, lng }));
+const VEHICLES = VEHICLE_TYPES.map(([slug]) => ({ slug }));
 
 if (process.env.NODE_ENV === "production") throw new Error("Seed-ul nu rulează în producție.");
 

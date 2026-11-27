@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { countryName } from "@/lib/geo";
+import { getRef } from "@/lib/ref";
 import { absUrl } from "@/lib/site";
 import { Check } from "./icons";
 
@@ -8,11 +8,12 @@ export function JsonLd({ data }: { data: object }) {
   return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(data).replace(/</g, "\\u003c") }} />;
 }
 
-export function CountryTag({ code }: { code: string | null }) {
+export async function CountryTag({ code }: { code: string | null }) {
   if (!code) return null;
+  const ref = await getRef();
   return (
     <abbr
-      title={countryName(code)}
+      title={ref.countryName(code)}
       className="inline-flex h-5 items-center rounded-md bg-slate-100 px-1.5 text-[11px] font-semibold tracking-wide text-slate-600 no-underline ring-1 ring-slate-200 ring-inset"
     >
       {code}
@@ -20,11 +21,12 @@ export function CountryTag({ code }: { code: string | null }) {
   );
 }
 
-export function Place({ city, country }: { city: string | null; country: string | null }) {
+export async function Place({ city, country }: { city: string | null; country: string | null }) {
   if (!city && !country) return <span className="text-slate-500">Orice destinație</span>;
+  const ref = await getRef();
   return (
     <span className="inline-flex min-w-0 items-center gap-1.5">
-      <span className="truncate font-semibold text-slate-900">{city ?? countryName(country)}</span>
+      <span className="truncate font-semibold text-slate-900">{city ?? ref.countryName(country)}</span>
       <CountryTag code={country} />
     </span>
   );

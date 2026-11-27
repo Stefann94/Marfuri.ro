@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
-import { VEHICLES } from "@/lib/vehicles";
+import type { RefVehicle, RefWeight } from "@/lib/ref";
 import { fmtInt } from "@/lib/format";
 import type { CountryItem } from "@/lib/places";
 import { Bell, Box, Calendar, ChevronDown, Pin, Search, Truck } from "@/components/icons";
@@ -52,32 +52,8 @@ function dateLabel(start: string | null, end: string | null) {
 
 /* ------------------------------------------------------------------ camion, greutate */
 
-const TRUCK_INFO: Record<string, [string, string]> = {
-  prelata: ["Prelată standard", "13,6 m · până la 24 t"],
-  mega: ["Mega trailer", "3 m înălțime la interior"],
-  frigorific: ["Frigorific", "temperatură controlată"],
-  box: ["Box / furgon închis", "marfă la adăpost"],
-  platforma: ["Platformă", "încărcare pe laterală sau macara"],
-  duba: ["Dubă", "sub 3,5 t"],
-  izoterm: ["Izoterm", "păstrează temperatura"],
-  jumbo: ["Jumbo / tandem", "volum mare"],
-  "trailer-jos": ["Trailer jos / agabaritic", "utilaje, încărcături înalte"],
-  basculanta: ["Basculantă", "vrac: nisip, pietriș, cereale"],
-  cisterna: ["Cisternă", "lichide"],
-  container: ["Portcontainer", "containere maritime"],
-  "auto-transportor": ["Transportor auto", "autoturisme"],
-};
-const TRUCK_FIRST = ["prelata", "mega", "frigorific", "box", "platforma", "duba"];
-const TRUCK_ORDER = [...TRUCK_FIRST, ...VEHICLES.map((v) => v.slug).filter((s) => !TRUCK_FIRST.includes(s))];
-const truckName = (slug: string) => TRUCK_INFO[slug]?.[0] ?? VEHICLES.find((v) => v.slug === slug)?.short ?? slug;
+/* Tipurile de camion și treptele de greutate vin din baza de date (vehicle_types, weight_classes). */
 
-const WEIGHTS: { t: string; name: string; sub: string; fill: number }[] = [
-  { t: "", name: "Oricât", sub: "", fill: 0 },
-  { t: "3.5", name: "până la 3,5 t", sub: "dubă", fill: 0.15 },
-  { t: "7.5", name: "până la 7,5 t", sub: "camion mic", fill: 0.31 },
-  { t: "12", name: "până la 12 t", sub: "camion mediu", fill: 0.5 },
-  { t: "24", name: "până la 24 t", sub: "TIR complet", fill: 1 },
-];
 const tons = (t: string) => `${t.replace(".", ",")} t`;
 
 /* ------------------------------------------------------------------ câmpul */
@@ -287,7 +263,25 @@ function DatePicker({
  * Fiecare câmp deschide o fereastră proprie (varianta A), cu săgeată spre câmp.
  * Formular GET spre /camioane sau /marfa; valorile alese pleacă în câmpuri ascunse.
  */
-export function HeroSearch({ loads, trucks, countries }: { loads: number; trucks: number; countries: CountryItem[] }) {
+export function HeroSearch({
+  loads,
+  trucks,
+  countries,
+  vehicles,
+  weights: weightRows,
+}: {
+  loads: number;
+  trucks: number;
+  countries: CountryItem[];
+  vehicles: RefVehicle[];
+  weights: RefWeight[];
+}) {
+  // cele mai folosite tipuri întâi; restul apar la „Încă … tipuri”
+  const truckFirst = vehicles.filter((v) => v.common).map((v) => v.slug);
+  const truckOrder = [...truckFirst, ...vehicles.filter((v) => !v.common).map((v) => v.slug)];
+  const vBySlug = new Map(vehicles.map((v) => [v.slug, v]));
+  const truckName = (slug: string) => vBySlug.get(slug)?.title ?? slug;
+  const WEIGHTS = weightRows.map((w) => ({ t: w.tons == null ? "" : String(w.tons), name: w.name, sub: w.sub, fill: w.fill }));
   const [role, setRole] = useState<Role>("camion");
   const [open, setOpen] = useState<Open>(null);
   const [from, setFrom] = useState<Place>({ text: "" });
@@ -394,8 +388,9 @@ export function HeroSearch({ loads, trucks, countries }: { loads: number; trucks
     setOpen(null);
   };
 
-  const truckList = moreTrucks || (vehicle && !TRUCK_FIRST.includes(vehicle)) ? TRUCK_ORDER : TRUCK_FIRST;
-  const hidden = TRUCK_ORDER.filter((s) => !TRUCK_FIRST.includes(s));
+  const showAll = moreTrucks || (!!vehicle && !truckFirst.includes(vehicle));
+  const truckList = showAll ? truckOrder : truckFirst;
+  const hidden = truckOrder.filter((s) => !truckFirst.includes(s));
   const weightText = weight ? (WEIGHTS.some((w) => w.t === weight) ? WEIGHTS.find((w) => w.t === weight)!.name : tons(weight)) : "Oricât";
   const dLabel = dateLabel(start, end);
 
@@ -469,7 +464,7 @@ export function HeroSearch({ loads, trucks, countries }: { loads: number; trucks
             </Field>
             <Div />
             <Field label="Camion" open={open === "truck"} fieldRef={refs.truck} onClick={() => toggle("truck")} icon={<Truck width={20} height={20} className="shrink-0 text-graphite" />}>
-              {listButton("truck", vehicle ? (VEHICLES.find((v) => v.slug === vehicle)?.short ?? vehicle) : "Oricare", !vehicle, "Camion")}
+              {listButton("truck", vehicle ? (vBySlug.get(vehicle)?.short ?? vehicle) : "Oricare", !vehicle, "Camion")}
             </Field>
             <Div />
             <Field label="Greutate" grow={0.85} open={open === "w8"} fieldRef={refs.w8} onClick={() => toggle("w8")} icon={<Box width={20} height={20} className="shrink-0 text-graphite" />}>
@@ -536,12 +531,12 @@ export function HeroSearch({ loads, trucks, countries }: { loads: number; trucks
                 <VehicleIcon slug={slug} width={30} height={19} className={`shrink-0 ${vehicle === slug ? "text-brand-600" : "text-[#5E636B]"}`} />
                 <span className="flex min-w-0 flex-1 flex-col py-1">
                   <span className="text-[15px] leading-tight font-bold">{slug ? truckName(slug) : "Oricare"}</span>
-                  <span className="text-xs leading-snug font-medium text-[#5E636B]">{slug ? TRUCK_INFO[slug]?.[1] : "toate tipurile de camion"}</span>
+                  <span className="text-xs leading-snug font-medium text-[#5E636B]">{slug ? vBySlug.get(slug)?.description : "toate tipurile de camion"}</span>
                 </span>
               </PickRow>
             ))}
           </div>
-          {truckList === TRUCK_FIRST && (
+          {!showAll && hidden.length > 0 && (
             <button
               type="button"
               onClick={() => setMoreTrucks(true)}

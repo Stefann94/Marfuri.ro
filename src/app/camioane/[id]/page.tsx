@@ -2,12 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getTruck, searchLoads, searchTrucks } from "@/lib/queries";
-import { countryName, countryPath } from "@/lib/geo";
-import { vehicleLabel } from "@/lib/vehicles";
 import { fmtDate, fmtNum } from "@/lib/format";
 import { LoadList, TruckList } from "@/components/Listings";
 import { CompanyCard, RouteHero, Specs } from "@/components/Detail";
 import { Breadcrumbs } from "@/components/ui";
+import { getRef } from "@/lib/ref";
 
 export const revalidate = 300;
 export const dynamicParams = true;
@@ -26,6 +25,7 @@ async function load(params: Props["params"]) {
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { countryName, countryPath, vehicleLabel } = await getRef();
   const { truck: t, isActive } = await load(params);
   const dest = t.toCity ?? (t.toCountry ? countryName(t.toCountry) : "orice destinație");
   return {
@@ -37,6 +37,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function TruckDetailPage({ params }: Props) {
+  const { countryName, countryPath, vehicleLabel } = await getRef();
   const { truck: t, company, isActive } = await load(params);
   const [matchingLoads, otherTrucks] = await Promise.all([
     searchLoads({ from: t.fromCountry, to: t.toCountry ?? undefined, page: 1 }, 5),

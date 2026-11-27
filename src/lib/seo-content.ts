@@ -1,11 +1,7 @@
 import type { Faq } from "@/components/ui";
-import { countryName } from "./geo";
+import type { Ref } from "./ref";
 import { fmtInt } from "./format";
-import { vehicleShort } from "./vehicles";
 
-/** Țări din Uniunea Europeană (fără vamă între ele pentru mărfuri). */
-const EU = new Set(["RO", "DE", "IT", "FR", "HU", "AT", "NL", "BE", "ES", "PL", "BG", "CZ", "SK", "SI", "HR", "GR", "DK", "SE", "PT", "LT", "LV", "EE"]);
-export const isEU = (code: string) => EU.has(code);
 
 type RouteStats = {
   loads: number;
@@ -17,21 +13,21 @@ type RouteStats = {
   vehicles: { vehicle: string; n: number }[];
 };
 
-export function routeIntro(from: string, to: string, s: RouteStats) {
-  const A = countryName(from);
-  const B = countryName(to);
+export function routeIntro(ref: Ref, from: string, to: string, s: RouteStats) {
+  const A = ref.countryName(from);
+  const B = ref.countryName(to);
   if (from === to) {
     return `Oferte actuale de transport marfă intern în ${A}: încărcături de la expeditori și camioane libere de la transportatori verificați. Acum sunt ${fmtInt(s.loads)} oferte de marfă active și ${fmtInt(s.trucks)} camioane disponibile.`;
   }
   return `Găsește marfă de transportat din ${A} în ${B} sau un camion liber pentru marfa ta. Acum sunt ${fmtInt(s.loads)} oferte de marfă active pe această rută și ${fmtInt(s.trucks)} camioane disponibile, publicate de firme verificate.`;
 }
 
-export function routeArticle(from: string, to: string, s: RouteStats): { h: string; p: string[] }[] {
-  const A = countryName(from);
-  const B = countryName(to);
+export function routeArticle(ref: Ref, from: string, to: string, s: RouteStats): { h: string; p: string[] }[] {
+  const A = ref.countryName(from);
+  const B = ref.countryName(to);
   const sections: { h: string; p: string[] }[] = [];
   const domestic = from === to;
-  const customs = !domestic && (!isEU(from) || !isEU(to));
+  const customs = !domestic && (!ref.isEU(from) || !ref.isEU(to));
 
   sections.push({
     h: domestic ? `Transport marfă intern în ${A}` : `Despre transportul de marfă ${A} – ${B}`,
@@ -40,7 +36,7 @@ export function routeArticle(from: string, to: string, s: RouteStats): { h: stri
         ? `Transportul intern acoperă livrările între orașele din ${A}: distribuție către retaileri, materiale de construcții, produse agricole sau marfă de import adusă din porturi și hub-uri logistice. Ofertele se schimbă de mai multe ori pe zi, așa că merită verificate dimineața devreme și după-amiaza.`
         : `Ruta ${A} – ${B} este folosită atât pentru transporturi complete (FTL, camion de 13,6 m), cât și pentru grupaje (LTL), unde mai mulți expeditori împart același camion. ${customs ? "Pentru că una dintre țări nu face parte din Uniunea Europeană, transportul presupune formalități vamale la frontieră." : "Fiind un transport în interiorul Uniunii Europene, marfa circulă fără formalități vamale, pe baza scrisorii de trăsură CMR."}`,
       s.vehicles.length
-        ? `Cele mai cerute tipuri de vehicule pe această rută, după ofertele active: ${s.vehicles.map((v) => vehicleShort(v.vehicle).toLowerCase()).join(", ")}.`
+        ? `Cele mai cerute tipuri de vehicule pe această rută, după ofertele active: ${s.vehicles.map((v) => ref.vehicleShort(v.vehicle).toLowerCase()).join(", ")}.`
         : `Pe această rută se folosesc în principal camioane cu prelată, frigorifice pentru marfă perisabilă și dube de 3,5 t pentru volume mici.`,
     ],
   });
@@ -66,11 +62,11 @@ export function routeArticle(from: string, to: string, s: RouteStats): { h: stri
   return sections;
 }
 
-export function routeFaq(from: string, to: string, s: RouteStats): Faq[] {
-  const A = countryName(from);
-  const B = countryName(to);
+export function routeFaq(ref: Ref, from: string, to: string, s: RouteStats): Faq[] {
+  const A = ref.countryName(from);
+  const B = ref.countryName(to);
   const domestic = from === to;
-  const customs = !domestic && (!isEU(from) || !isEU(to));
+  const customs = !domestic && (!ref.isEU(from) || !ref.isEU(to));
   const label = domestic ? `intern în ${A}` : `din ${A} în ${B}`;
   const faq: Faq[] = [
     {
@@ -92,7 +88,7 @@ export function routeFaq(from: string, to: string, s: RouteStats): Faq[] {
     faq.push({
       q: `Este nevoie de vamă pentru transportul ${A} – ${B}?`,
       a: customs
-        ? `Da. ${!isEU(from) ? A : B} nu face parte din Uniunea Europeană, așa că marfa trebuie declarată vamal la export și import.`
+        ? `Da. ${!ref.isEU(from) ? A : B} nu face parte din Uniunea Europeană, așa că marfa trebuie declarată vamal la export și import.`
         : `Nu. Ambele țări fac parte din Uniunea Europeană, iar marfa circulă liber, însoțită de scrisoarea de trăsură CMR.`,
     });
   }

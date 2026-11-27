@@ -2,12 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getLoad, searchLoads } from "@/lib/queries";
-import { countryName, routePath } from "@/lib/geo";
-import { vehicleLabel } from "@/lib/vehicles";
 import { fmtDate, fmtNum, fmtPrice } from "@/lib/format";
 import { LoadList } from "@/components/Listings";
 import { CompanyCard, RouteHero, Specs } from "@/components/Detail";
 import { Breadcrumbs } from "@/components/ui";
+import { getRef } from "@/lib/ref";
 
 // ISR: pagina se generează la prima vizită și se reîmprospătează la 5 minute.
 export const revalidate = 300;
@@ -27,6 +26,7 @@ async function load(params: Props["params"]) {
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { countryName, routePath, vehicleLabel } = await getRef();
   const { load: l, isActive } = await load(params);
   const what = [l.weightT != null && `${fmtNum(l.weightT)} t`, vehicleLabel(l.vehicle).toLowerCase()].filter(Boolean).join(", ");
   return {
@@ -38,6 +38,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function LoadDetailPage({ params }: Props) {
+  const { countryName, routePath, vehicleLabel } = await getRef();
   const { load: l, company, isActive } = await load(params);
   const similar = (await searchLoads({ from: l.fromCountry, to: l.toCountry, page: 1 }, 6)).items.filter((x) => x.id !== l.id).slice(0, 5);
   const route = routePath(l.fromCountry, l.toCountry);

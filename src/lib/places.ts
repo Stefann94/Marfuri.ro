@@ -46,3 +46,34 @@ export async function nearestCity(lat: number, lng: number): Promise<CityItem | 
     .limit(1);
   return row ?? null;
 }
+
+export type FeaturedCity = { name: string; slug: string; country: string; lat: number; lng: number };
+
+/** Orașele cu pagină proprie (/orase/…), marcate în baza de date (cities.featured). */
+export function featuredCities(): Promise<FeaturedCity[]> {
+  return memo("cities:featured", 300_000, () =>
+    db
+      .select({ name: cities.name, slug: cities.slug, country: cities.country, lat: cities.lat, lng: cities.lng })
+      .from(cities)
+      .where(eq(cities.featured, true))
+      .orderBy(desc(cities.population), asc(cities.name)),
+  );
+}
+
+/** Orașul cu pagină proprie, după slug. */
+export async function featuredCityBySlug(slug: string) {
+  return (await featuredCities()).find((c) => c.slug === slug);
+}
+
+/** Găsește localitatea scrisă într-un formular (pentru coordonate), indiferent de diacritice; cea mai mare, dacă sunt mai multe. */
+export async function findCityByName(country: string, name: string) {
+  const slug = slugify(name);
+  if (!slug) return undefined;
+  const [row] = await db
+    .select({ name: cities.name, slug: cities.slug, lat: cities.lat, lng: cities.lng })
+    .from(cities)
+    .where(and(eq(cities.country, country), eq(cities.slug, slug)))
+    .orderBy(desc(cities.population))
+    .limit(1);
+  return row;
+}

@@ -6,9 +6,9 @@ import { and, eq, ne } from "drizzle-orm";
 import { db } from "@/db";
 import { companies, loads, trucks } from "@/db/schema";
 import { getCurrentUser } from "./auth";
-import { countryByCode, findCity } from "./geo";
+import { getRef } from "./ref";
+import { findCityByName } from "./places";
 import { slugify } from "./text";
-import { vehicleBySlug, vehicleShort } from "./vehicles";
 
 export type PublishState = { error?: string };
 export type AcceptState = { ok?: boolean; error?: string; login?: boolean; contact?: { company: string; name: string | null; phone: string | null } };
@@ -21,12 +21,12 @@ const num = (fd: FormData, k: string) => {
 const isoDate = (v: string) => (/^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null);
 const todayISO = () => new Date().toISOString().slice(0, 10);
 
-/** Orașul din formular → nume, slug și coordonate (dacă e în nomenclator). */
-function place(fd: FormData, cityKey: string, countryKey: string) {
+/** Orașul din formular → nume, slug și coordonate (dacă e în nomenclatorul din baza de date). */
+async function place(fd: FormData, cityKey: string, countryKey: string) {
   const name = str(fd, cityKey, 80);
-  const country = countryByCode(str(fd, countryKey, 2))?.code;
+  const country = (await getRef()).countryByCode(str(fd, countryKey, 2))?.code;
   if (!name || !country) return null;
-  const known = findCity(country, name);
+  const known = await findCityByName(country, name);
   return { country, city: known?.name ?? name, slug: known?.slug ?? slugify(name), lat: known?.lat ?? null, lng: known?.lng ?? null };
 }
 
@@ -36,8 +36,8 @@ export async function publishLoad(_: PublishState, fd: FormData): Promise<Publis
   const user = await getCurrentUser();
   if (!user) redirect("/cont/autentificare?next=/cauta-camion");
 
-  const from = place(fd, "din_oras", "din_tara");
-  const to = place(fd, "spre_oras", "spre_tara");
+  const from = await place(fd, "din_oras", "din_tara");
+  const to = await place(fd, "spre_oras", "spre_tara");
   if (!from) return { error: "Scrie orașul de unde se încarcă marfa." };
   if (!to) return { error: "Scrie orașul unde trebuie să ajungă marfa." };
   const loadDate = isoDate(str(fd, "data", 10));
@@ -48,7 +48,8 @@ export async function publishLoad(_: PublishState, fd: FormData): Promise<Publis
   if (!goods) return { error: "Scrie pe scurt ce marfă transporți." };
   const weightT = num(fd, "tone");
   if (!weightT || weightT > 40) return { error: "Scrie greutatea mărfii, în tone (cel mult 40)." };
-  const vehicles = fd.getAll("vehicul").map(String).filter((v) => vehicleBySlug(v));
+  const ref = await getRef();
+  const vehicles = fd.getAll("vehicul").map(String).filter((v) => ref.vehicleBySlug(v));
   const vehicle = vehicles[0] ?? "prelata";
   const askOffers = str(fd, "pret_mod", 10) === "oferte";
   const price = askOffers ? null : num(fd, "pret");
@@ -61,7 +62,7 @@ export async function publishLoad(_: PublishState, fd: FormData): Promise<Publis
     str(fd, "adresa_desc", 160) && `Descărcare: ${str(fd, "adresa_desc", 160)}`,
     str(fd, "ora", 40) && `Interval orar: ${str(fd, "ora", 40)}`,
     fd.get("flexibil") && "Data e flexibilă (± 1 zi)",
-    vehicles.length > 1 && `Accept și: ${vehicles.slice(1).map(vehicleShort).join(", ")}`,
+    vehicles.length > 1 && `Accept și: ${vehicles.slice(1).map(ref.vehicleShort).join(", ")}`,
     fd.getAll("incarcare").length > 0 && `Încărcare: ${fd.getAll("incarcare").map(String).join(", ")}`,
     num(fd, "paleti") && `${num(fd, "paleti")} paleți`,
     fd.get("stivuibil") && "Marfa se poate stivui",
@@ -110,17 +111,18 @@ export async function publishTruck(_: PublishState, fd: FormData): Promise<Publi
   const user = await getCurrentUser();
   if (!user) redirect("/cont/autentificare?next=/cauta-marfa");
 
-  const from = place(fd, "din_oras", "din_tara");
+  const from = await place(fd, "din_oras", "din_tara");
   if (!from) return { error: "Scrie orașul în care e camionul." };
   const anywhere = str(fd, "dest_mod", 10) === "oriunde";
-  const toCountry = anywhere ? null : countryByCode(str(fd, "spre_tara", 2))?.code ?? null;
+  const ref = await getRef();
+  const toCountry = anywhere ? null : ref.countryByCode(str(fd, "spre_tara", 2))?.code ?? null;
   const toCityName = anywhere ? "" : str(fd, "spre_oras", 80);
-  const toKnown = toCountry && toCityName ? findCity(toCountry, toCityName) : undefined;
+  const toKnown = toCountry && toCityName ? await findCityByName(toCountry, toCityName) : undefined;
   const availableFrom = isoDate(str(fd, "liber_de", 10));
   if (!availableFrom) return { error: "Alege data de la care e liber camionul." };
   if (availableFrom < todayISO()) return { error: "Data nu poate fi în trecut." };
   const availableTo = isoDate(str(fd, "liber_pana", 10));
-  const vehicle = vehicleBySlug(str(fd, "vehicul", 30))?.slug;
+  const vehicle = ref.vehicleBySlug(str(fd, "vehicul", 30))?.slug;
   if (!vehicle) return { error: "Alege tipul camionului." };
   const capacityT = num(fd, "capacitate");
   if (!capacityT || capacityT > 40) return { error: "Scrie capacitatea camionului, în tone (cel mult 40)." };

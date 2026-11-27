@@ -3,8 +3,7 @@ import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { myAccepted, myPublished } from "@/lib/cereri";
 import { closeOwn } from "@/lib/cereri-actions";
-import { vehicleShort } from "@/lib/vehicles";
-import { countryName } from "@/lib/geo";
+import { getRef } from "@/lib/ref";
 import { fmtDate, fmtInt, fmtNum } from "@/lib/format";
 import { CC, Ico, ICONS, Skew, VerifiedPill, ago, btnCls } from "@/components/cereri/ui";
 import { CereriShell } from "@/components/cereri/pages";
@@ -63,7 +62,7 @@ function Row({ route, meta, status, children, close }: { route: React.ReactNode;
   );
 }
 
-const route = (from: string, fc: string, to: string | null, tc: string | null) => (
+const routeWith = (countryName: (code: string | null) => string) => (from: string, fc: string, to: string | null, tc: string | null) => (
   <>
     {from}
     <CC code={fc} />
@@ -81,6 +80,8 @@ const route = (from: string, fc: string, to: string | null, tc: string | null) =
 
 export default async function AccountPage() {
   const user = await requireUser("/cont");
+  const { vehicleShort, countryName } = await getRef();
+  const route = routeWith(countryName);
   const [pub, acc] = await Promise.all([myPublished(user.company.id), myAccepted(user.company.id)]);
   const published = pub.loads.length + pub.trucks.length;
   const accepted = acc.loads.length + acc.trucks.length;

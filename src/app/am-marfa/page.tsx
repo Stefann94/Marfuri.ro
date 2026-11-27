@@ -4,8 +4,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { LIST_SIZE, listOpenTrucks, myOpenLoads } from "@/lib/cereri";
 import { parseFilters } from "@/lib/queries";
 import { listCountries } from "@/lib/places";
-import { vehicleShort } from "@/lib/vehicles";
-import { countryName } from "@/lib/geo";
+import { getRef } from "@/lib/ref";
 import { fmtDate, fmtInt, fmtNum } from "@/lib/format";
 import { MetaItem, PageHead, ReqCard, RouteLine, Skew, ago, btnCls, isFresh } from "@/components/cereri/ui";
 import { AcceptTruck } from "@/components/cereri/client";
@@ -23,7 +22,9 @@ type SP = Record<string, string | string[] | undefined>;
 
 export default async function AmMarfaPage({ searchParams }: { searchParams: Promise<SP> }) {
   const sp = await searchParams;
-  const f = parseFilters(sp);
+  const ref = await getRef();
+  const { vehicleShort, countryName } = ref;
+  const f = parseFilters(sp, ref);
   const verified = sp.verificat === "1";
   const newId = Number(sp.nou) || 0;
   const user = await getCurrentUser();
@@ -75,7 +76,7 @@ export default async function AmMarfaPage({ searchParams }: { searchParams: Prom
                     id={`c${t.id}`}
                     highlight={t.id === newId}
                     mine={own}
-                    route={<RouteLine from={t.fromCity} fromCc={t.fromCountry} to={t.toCity} toCc={t.toCountry} anyDest={!t.toCountry} isNew={isFresh(t.createdAt)} />}
+                    route={<RouteLine from={t.fromCity} fromCc={t.fromCountry} to={t.toCity} toCc={t.toCountry} toName={countryName(t.toCountry)} anyDest={!t.toCountry} isNew={isFresh(t.createdAt)} />}
                     meta={
                       <>
                         <MetaItem icon="cal">

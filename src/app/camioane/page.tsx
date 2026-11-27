@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { filtersToQuery, hasFilters, parseFilters, searchTrucks, PAGE_SIZE } from "@/lib/queries";
 import { describeFilters } from "@/lib/describe";
+import { getRef } from "@/lib/ref";
 import { fmtInt } from "@/lib/format";
 import { SearchForm } from "@/components/SearchForm";
 import { listCountries } from "@/lib/places";
@@ -11,8 +12,9 @@ import { Breadcrumbs, Pagination } from "@/components/ui";
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
-  const f = parseFilters(await searchParams);
-  const desc = describeFilters(f);
+  const ref = await getRef();
+  const f = parseFilters(await searchParams, ref);
+  const desc = describeFilters(f, ref);
   return {
     title: desc ? `Camioane libere ${desc}` : "Camioane libere – transportatori disponibili azi",
     description: "Camioane libere și transportatori disponibili în România și Europa. Găsește rapid un camion pentru marfa ta, după rută, dată și tipul vehiculului.",
@@ -22,10 +24,11 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
 }
 
 export default async function TrucksPage({ searchParams }: Props) {
-  const f = parseFilters(await searchParams);
+  const ref = await getRef();
+  const f = parseFilters(await searchParams, ref);
   const { items, total } = await searchTrucks(f);
   const totalPages = Math.ceil(total / PAGE_SIZE);
-  const desc = describeFilters(f);
+  const desc = describeFilters(f, ref);
 
   return (
     <div className="container-page pt-8">

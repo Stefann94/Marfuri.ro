@@ -3,7 +3,7 @@ import Link from "next/link";
 import { connection } from "next/server";
 import { COMPANIES_PAGE, searchCompanies } from "@/lib/queries";
 import { listCountries, type CountryItem } from "@/lib/places";
-import { countryByCode } from "@/lib/geo";
+import { getRef, type Ref } from "@/lib/ref";
 import { fmtInt } from "@/lib/format";
 import { startPlace } from "@/lib/start-place";
 import { Building, Truck } from "@/components/icons";
@@ -17,8 +17,6 @@ export const metadata: Metadata = {
   description: "Catalogul firmelor de transport, expeditorilor și caselor de expediții de pe Mărfuri.ro, cu verificare ANAF.",
   alternates: { canonical: "/firme" },
 };
-
-const KIND: Record<string, string> = { carrier: "Transportator", shipper: "Expeditor", forwarder: "Casă de expediții" };
 
 type SP = Record<string, string | string[] | undefined>;
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v)?.trim() || undefined;
@@ -37,10 +35,12 @@ const initials = (name: string) =>
 export default async function CompaniesPage({ searchParams }: { searchParams: Promise<SP> }) {
   await connection();
   const sp = await searchParams;
+  const ref = await getRef();
+  const tip = one(sp.tip);
   const f = {
     q: one(sp.q)?.slice(0, 80),
-    kind: KIND[one(sp.tip) ?? ""] ? one(sp.tip) : undefined,
-    country: countryByCode(one(sp.tara))?.code,
+    kind: ref.kinds.some((k) => k.code === tip) ? tip : undefined,
+    country: ref.countryByCode(one(sp.tara))?.code,
     city: one(sp.oras)?.slice(0, 80),
     minFleet: Math.max(0, Number.parseInt(one(sp.flota) ?? "", 10) || 0) || undefined,
     verified: one(sp.verificat) === "1",
@@ -64,7 +64,7 @@ export default async function CompaniesPage({ searchParams }: { searchParams: Pr
         sub="Transportatori, expeditori și case de expediții. Vezi flota, de când sunt pe site și dacă au codul fiscal validat la ANAF."
       />
       <div className="grid grid-cols-1 items-start gap-[26px] pt-[26px] pb-[70px] lg:grid-cols-[280px_minmax(0,1fr)]">
-        <Filters f={f} countries={countries} />
+        <Filters f={f} countries={countries} kinds={ref.kinds} />
         <div className="min-w-0">
           <div className="mb-3.5 flex flex-wrap items-center justify-between gap-3">
             <b className="text-[15px] font-bold">
@@ -86,7 +86,7 @@ export default async function CompaniesPage({ searchParams }: { searchParams: Pr
             <ul className="flex flex-col gap-3">
               {items.map((c) => (
                 <li key={c.slug}>
-                  <CompanyCard c={c} />
+                  <CompanyCard c={c} kindLabel={ref.kindLabel} />
                 </li>
               ))}
             </ul>
@@ -100,7 +100,7 @@ export default async function CompaniesPage({ searchParams }: { searchParams: Pr
 
 type Company = Awaited<ReturnType<typeof searchCompanies>>["items"][number];
 
-function CompanyCard({ c }: { c: Company }) {
+function CompanyCard({ c, kindLabel }: { c: Company; kindLabel: Ref["kindLabel"] }) {
   const KindIcon = c.kind === "carrier" ? Truck : Building;
   const nums: [string, string][] = [
     [c.fleetSize ? fmtInt(c.fleetSize) : "—", "camioane"],
@@ -124,7 +124,7 @@ function CompanyCard({ c }: { c: Company }) {
         <span className="mt-1.5 flex flex-wrap items-center gap-x-3.5 gap-y-1 text-sm text-[#3A404A]">
           <span className="inline-flex items-center gap-1.5">
             <KindIcon width={16} height={16} className="text-[#6B717A]" />
-            {KIND[c.kind] ?? c.kind}
+            {kindLabel(c.kind)}
           </span>
           <span className="inline-flex items-center gap-1.5">
             <Ico d={ICONS.pin} size={16} className="text-[#6B717A]" />
@@ -152,7 +152,7 @@ function CompanyCard({ c }: { c: Company }) {
   );
 }
 
-function Filters({ f, countries }: { f: { q?: string; kind?: string; country?: string; city?: string; minFleet?: number; verified: boolean }; countries: CountryItem[] }) {
+function Filters({ f, countries, kinds }: { f: { q?: string; kind?: string; country?: string; city?: string; minFleet?: number; verified: boolean }; countries: CountryItem[]; kinds: Ref["kinds"] }) {
   const n = [f.q, f.kind, f.country || f.city, f.minFleet, f.verified].filter(Boolean).length;
   const chip = (value: string, label: string) => (
     <label key={value || "toate"} className="cursor-pointer">
@@ -189,7 +189,7 @@ function Filters({ f, countries }: { f: { q?: string; kind?: string; country?: s
         <Field label="Tipul firmei">
           <div className="flex flex-wrap gap-2">
             {chip("", "Toate")}
-            {Object.entries(KIND).map(([v, l]) => chip(v, l))}
+            {kinds.map((k) => chip(k.code, k.label))}
           </div>
         </Field>
         <PlaceField label="Sediul" cityName="oras" countryName="tara" countries={countries} defaultPlace={startPlace(f.country, f.city, countries)} placeholder="Oriunde" />

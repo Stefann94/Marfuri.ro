@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { VEHICLES } from "@/lib/vehicles";
+import { getRef } from "@/lib/ref";
 import type { CountryItem } from "@/lib/places";
 import { PlaceField } from "./PlaceField";
 import { startPlace } from "@/lib/start-place";
@@ -8,8 +8,8 @@ import { Field, Ico, ICONS, Skew, btnCls, inputBox, inputCls } from "./ui";
 export type ListParams = { from?: string; to?: string; fromCity?: string; toCity?: string; date?: string; vehicle?: string; weight?: number; verified?: boolean };
 
 /** Filtrele din stânga listelor (formular GET, merge și fără JavaScript). */
-export function ListFilters({ action, p, weightLabel, countries }: { action: string; p: ListParams; weightLabel: string; countries: CountryItem[] }) {
-  const common = ["prelata", "mega", "frigorific", "box", "platforma", "duba"];
+export async function ListFilters({ action, p, weightLabel, countries }: { action: string; p: ListParams; weightLabel: string; countries: CountryItem[] }) {
+  const { vehicles } = await getRef();
   const n = [p.from || p.fromCity, p.to || p.toCity, p.date, p.vehicle, p.weight, p.verified].filter(Boolean).length;
   return (
     <div className="lg:sticky lg:top-[173px] xl:top-[124px]">
@@ -46,7 +46,7 @@ export function ListFilters({ action, p, weightLabel, countries }: { action: str
             <input type="radio" name="vehicul" value="" defaultChecked={!p.vehicle} className="peer sr-only" />
             <span className="inline-flex h-[38px] items-center rounded-[10px] border-[1.5px] border-[#D9D2D0] bg-white px-3.5 text-sm font-bold peer-checked:border-graphite peer-checked:bg-graphite peer-checked:text-white">Oricare</span>
           </label>
-          {VEHICLES.filter((v) => common.includes(v.slug)).map((v) => (
+          {vehicles.filter((v) => v.common).map((v) => (
             <label key={v.slug} className="cursor-pointer">
               <input type="radio" name="vehicul" value={v.slug} defaultChecked={p.vehicle === v.slug} className="peer sr-only" />
               <span className="inline-flex h-[38px] items-center rounded-[10px] border-[1.5px] border-[#D9D2D0] bg-white px-3.5 text-sm font-bold peer-checked:border-graphite peer-checked:bg-graphite peer-checked:text-white">

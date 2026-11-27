@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { filtersToQuery, hasFilters, parseFilters, searchLoads, PAGE_SIZE } from "@/lib/queries";
 import { describeFilters } from "@/lib/describe";
+import { getRef } from "@/lib/ref";
 import { fmtInt } from "@/lib/format";
-import { routePath } from "@/lib/geo";
 import { SearchForm } from "@/components/SearchForm";
 import { listCountries } from "@/lib/places";
 import { LoadList } from "@/components/Listings";
@@ -12,8 +12,9 @@ import { Breadcrumbs, Pagination } from "@/components/ui";
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
-  const f = parseFilters(await searchParams);
-  const desc = describeFilters(f);
+  const ref = await getRef();
+  const f = parseFilters(await searchParams, ref);
+  const desc = describeFilters(f, ref);
   // Paginile cu filtre arbitrare nu se indexează; paginile de rută (/transport-marfa/...) sunt cele canonice pentru SEO.
   return {
     title: desc ? `Marfă de transportat ${desc}` : "Marfă de transportat – oferte de transport actuale",
@@ -24,10 +25,11 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
 }
 
 export default async function LoadsPage({ searchParams }: Props) {
-  const f = parseFilters(await searchParams);
+  const ref = await getRef();
+  const f = parseFilters(await searchParams, ref);
   const { items, total } = await searchLoads(f);
   const totalPages = Math.ceil(total / PAGE_SIZE);
-  const desc = describeFilters(f);
+  const desc = describeFilters(f, ref);
 
   return (
     <div className="container-page pt-8">
@@ -45,7 +47,7 @@ export default async function LoadsPage({ searchParams }: Props) {
       {f.from && f.to && !f.fromCity && !f.toCity && (
         <p className="mt-4 text-sm text-slate-600">
           Vezi și pagina rutei:{" "}
-          <Link className="font-medium text-brand-700 hover:underline" href={routePath(f.from, f.to)}>
+          <Link className="font-medium text-brand-700 hover:underline" href={ref.routePath(f.from, f.to)}>
             prețuri medii și statistici pentru această rută
           </Link>
         </p>

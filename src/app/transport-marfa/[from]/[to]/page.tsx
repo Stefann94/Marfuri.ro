@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { COUNTRIES, POPULAR_DESTINATIONS, countryBySlug, countryName, countryPath, isPopularRoute, routePath } from "@/lib/geo";
 import { routeStats, searchLoads, searchTrucks } from "@/lib/queries";
 import { routeArticle, routeFaq, routeIntro } from "@/lib/seo-content";
 import { fmtInt } from "@/lib/format";
 import { LoadList, TruckList } from "@/components/Listings";
 import { Breadcrumbs, FaqList, StatTile } from "@/components/ui";
 import { ArrowRight } from "@/components/icons";
+import { getRef } from "@/lib/ref";
 
 export const revalidate = 300;
 export const dynamicParams = true;
@@ -19,6 +19,7 @@ type Props = { params: Promise<{ from: string; to: string }> };
 
 async function resolve(params: Props["params"]) {
   const p = await params;
+  const { countryBySlug } = await getRef();
   const a = countryBySlug(p.from);
   const b = countryBySlug(p.to);
   if (!a || !b) notFound();
@@ -26,6 +27,7 @@ async function resolve(params: Props["params"]) {
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { isPopularRoute, routePath } = await getRef();
   const { a, b } = await resolve(params);
   const s = await routeStats(a.code, b.code);
   const domestic = a.code === b.code;
@@ -42,6 +44,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function RoutePage({ params }: Props) {
+  const ref = await getRef();
+  const { countryName, countryPath, routePath, popular: POPULAR_DESTINATIONS, countries: COUNTRIES } = ref;
   const { a, b } = await resolve(params);
   const [s, loadsRes, trucksRes] = await Promise.all([
     routeStats(a.code, b.code),
@@ -64,7 +68,7 @@ export default async function RoutePage({ params }: Props) {
       />
       <header className="mt-4 max-w-3xl">
         <h1 className="text-3xl font-bold sm:text-4xl">{h1}</h1>
-        <p className="mt-3 text-lg text-slate-600">{routeIntro(a.code, b.code, s)}</p>
+        <p className="mt-3 text-lg text-slate-600">{routeIntro(ref, a.code, b.code, s)}</p>
       </header>
 
       <div className="mt-8 grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -92,7 +96,7 @@ export default async function RoutePage({ params }: Props) {
 
       <div className="mt-16 grid gap-12 lg:grid-cols-[1.5fr_1fr]">
         <article className="prose-lite">
-          {routeArticle(a.code, b.code, s).map((sec) => (
+          {routeArticle(ref, a.code, b.code, s).map((sec) => (
             <section key={sec.h}>
               <h2>{sec.h}</h2>
               {sec.p.map((p) => (
@@ -101,7 +105,7 @@ export default async function RoutePage({ params }: Props) {
             </section>
           ))}
           <h2>Întrebări frecvente</h2>
-          <FaqList items={routeFaq(a.code, b.code, s)} />
+          <FaqList items={routeFaq(ref, a.code, b.code, s)} />
         </article>
 
         <aside className="space-y-6">

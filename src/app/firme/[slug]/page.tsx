@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getCompany } from "@/lib/queries";
-import { countryName } from "@/lib/geo";
+import { getRef } from "@/lib/ref";
 import { fmtMonthYear } from "@/lib/format";
 import { absUrl } from "@/lib/site";
 import { LoadList, TruckList } from "@/components/Listings";
@@ -15,7 +15,6 @@ export async function generateStaticParams() {
 
 type Props = { params: Promise<{ slug: string }> };
 
-const KIND: Record<string, string> = { carrier: "Transportator", forwarder: "Casă de expediții", shipper: "Expeditor / producător" };
 
 async function resolve(params: Props["params"]) {
   const data = await getCompany((await params).slug);
@@ -25,15 +24,17 @@ async function resolve(params: Props["params"]) {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { company: c } = await resolve(params);
+  const { kindLabel, countryName } = await getRef();
   return {
-    title: `${c.name} – ${KIND[c.kind] ?? "firmă"} din ${c.city}`,
-    description: `${c.name}, ${(KIND[c.kind] ?? "firmă").toLowerCase()} din ${c.city}, ${countryName(c.country)}. Oferte de transport active și date despre firmă.`,
+    title: `${c.name} – ${kindLabel(c.kind)} din ${c.city}`,
+    description: `${c.name}, ${kindLabel(c.kind).toLowerCase()} din ${c.city}, ${countryName(c.country)}. Oferte de transport active și date despre firmă.`,
     alternates: { canonical: `/firme/${c.slug}` },
   };
 }
 
 export default async function CompanyPage({ params }: Props) {
   const { company: c, loads, trucks } = await resolve(params);
+  const { kindLabel, countryName } = await getRef();
   return (
     <div className="container-page pt-8">
       <JsonLd
@@ -54,7 +55,7 @@ export default async function CompanyPage({ params }: Props) {
           {c.verifiedAt && <VerifiedBadge />}
         </div>
         <p className="mt-2 text-slate-600">
-          {KIND[c.kind] ?? c.kind} · {c.city}, {countryName(c.country)} · membru din {fmtMonthYear(c.createdAt)}
+          {kindLabel(c.kind)} · {c.city}, {countryName(c.country)} · membru din {fmtMonthYear(c.createdAt)}
         </p>
         {c.description && <p className="mt-4 max-w-3xl leading-relaxed text-slate-700">{c.description}</p>}
         <dl className="mt-6 flex flex-wrap gap-x-8 gap-y-2 text-sm">

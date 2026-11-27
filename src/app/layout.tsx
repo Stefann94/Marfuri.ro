@@ -7,6 +7,8 @@ import { SiteFooter } from "@/components/SiteChrome";
 import { ScrollToTop } from "@/components/ScrollToTop";
 import { SiteHeader, type NavUser } from "@/components/nav/SiteHeader";
 import { getCurrentUser, initials } from "@/lib/auth";
+import { navInbox } from "@/lib/inbox";
+import { ago } from "@/components/cereri/ui";
 
 const inter = Inter({ subsets: ["latin", "latin-ext"], display: "swap", variable: "--font-inter" });
 // Fontul titlurilor și al meniului: Russo One cu Ț/ț corecte (vezi src/app/fonts/MarfuriTitluri-OFL.txt)
@@ -37,9 +39,17 @@ export const viewport: Viewport = {
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const me = await getCurrentUser();
-  const navUser: NavUser | null = me
-    ? { company: me.company.name, initials: initials(me.company.name), verified: me.company.verified, unreadMessages: 0, notifications: [] }
-    : null;
+  const inbox = me ? await navInbox(me.company.id) : null;
+  const navUser: NavUser | null =
+    me && inbox
+      ? {
+          company: me.company.name,
+          initials: initials(me.company.name),
+          verified: me.company.verified,
+          unreadMessages: inbox.unreadMessages,
+          notifications: inbox.notifications.map(({ createdAt, ...n }) => ({ ...n, when: ago(createdAt) })),
+        }
+      : null;
   return (
     <html lang="ro" className={`${inter.variable} ${russo.variable} ${jakarta.variable}`}>
       {/* pe telefon lăsăm loc pentru bara de jos */}

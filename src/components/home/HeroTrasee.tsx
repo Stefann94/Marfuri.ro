@@ -1,4 +1,4 @@
-import { countryName, routePath } from "@/lib/geo";
+import { getRef } from "@/lib/ref";
 import type { RouteSupply } from "@/lib/queries";
 import { TraseeDerulator, type TraseuRand } from "./TraseeDerulator";
 
@@ -15,8 +15,9 @@ function hint(loads: number, trucks: number) {
  * Chenarul din stânga hero-ului (varianta F): pe fiecare traseu, câtă marfă caută șofer și câți șoferi sunt liberi.
  * Datele (nume de țări, linkuri, sfaturi) se pregătesc aici, pe server; derularea e în TraseeDerulator.
  */
-export function HeroTrasee({ routes }: { routes: RouteSupply[] }) {
+export async function HeroTrasee({ routes }: { routes: RouteSupply[] }) {
   if (!routes.length) return null;
+  const { countryName, routePath } = await getRef();
   const rows: TraseuRand[] = routes.map((r) => {
     const h = hint(r.loads, r.trucks);
     return {

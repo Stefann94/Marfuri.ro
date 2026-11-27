@@ -2,8 +2,7 @@ import { and, asc, count, desc, eq, gte, isNull, lte, or, sql, type SQL } from "
 import { db } from "@/db";
 import { companies, loads, trucks } from "@/db/schema";
 import { memo } from "./memo";
-import { countryByCode } from "./geo";
-import { vehicleBySlug } from "./vehicles";
+import type { Ref } from "./ref";
 import { slugify } from "./text";
 
 export const PAGE_SIZE = 25;
@@ -29,10 +28,10 @@ const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v)?
 
 const isoDate = (v: string | undefined) => (v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : undefined);
 
-/** Citește și validează parametrii din URL (?din=RO&spre=DE&oras_din=…&data=…&pana=…&vehicul=…&tone=…&pagina=…). */
-export function parseFilters(sp: SP): Filters {
-  const from = countryByCode(one(sp.din))?.code;
-  const to = countryByCode(one(sp.spre))?.code;
+/** Citește și validează parametrii din URL (țările și tipul de camion, după nomenclatoarele din baza de date) (?din=RO&spre=DE&oras_din=…&data=…&pana=…&vehicul=…&tone=…&pagina=…). */
+export function parseFilters(sp: SP, ref: Ref): Filters {
+  const from = ref.countryByCode(one(sp.din))?.code;
+  const to = ref.countryByCode(one(sp.spre))?.code;
   const date = isoDate(one(sp.data));
   const dateTo = isoDate(one(sp.pana));
   const weight = Number.parseFloat((one(sp.tone) ?? "").replace(",", "."));
@@ -44,7 +43,7 @@ export function parseFilters(sp: SP): Filters {
     toCity: one(sp.oras_spre)?.slice(0, 60),
     date,
     dateTo: date && dateTo && dateTo >= date ? dateTo : undefined,
-    vehicle: vehicleBySlug(one(sp.vehicul))?.slug,
+    vehicle: ref.vehicleBySlug(one(sp.vehicul))?.slug,
     weight: weight > 0 && weight <= 40 ? Math.round(weight * 10) / 10 : undefined,
     page,
   };
