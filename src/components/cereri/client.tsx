@@ -120,6 +120,24 @@ function NeedAccount({ next, onClose }: { next: string; onClose: () => void }) {
   );
 }
 
+/** Fără cont: numele și telefonul celui care acceptă. */
+function GuestContact({ id }: { id: number }) {
+  return (
+    <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+      <Field label="Numele tău" htmlFor={`gn-${id}`}>
+        <div className={inputBox}>
+          <input id={`gn-${id}`} name="contact_nume" required placeholder="ex. Andrei Pop" className={inputCls} />
+        </div>
+      </Field>
+      <Field label="Telefon" htmlFor={`gt-${id}`}>
+        <div className={inputBox}>
+          <input id={`gt-${id}`} name="contact_tel" required inputMode="tel" placeholder="ex. 0722 123 456" className={inputCls} />
+        </div>
+      </Field>
+    </div>
+  );
+}
+
 /** „Acceptă cursa” (lista Am camion liber). */
 export function AcceptLoad({ id, summary, hasPrice, loggedIn, next }: { id: number; summary: ReactNode; hasPrice: boolean; loggedIn: boolean; next: string }) {
   const [open, setOpen] = useState(false);
@@ -132,13 +150,14 @@ export function AcceptLoad({ id, summary, hasPrice, loggedIn, next }: { id: numb
         Acceptă cursa
       </button>
       {open && <Modal open={open} onClose={() => setOpen(false)} title={state.ok ? "Cursa e a ta" : "Accepți această cursă?"}>
-        {!loggedIn || state.login ? (
+        {state.login ? (
           <NeedAccount next={next} onClose={() => setOpen(false)} />
         ) : state.ok ? (
           <Done state={state} what="cursa" onClose={() => setOpen(false)} />
         ) : (
           <form action={action} className="flex flex-col gap-3.5 px-6 pt-2 pb-6">
             <Summary>{summary}</Summary>
+            {!loggedIn && <GuestContact id={id} />}
             <Field label="Cu ce camion faci cursa" htmlFor={`cam-${id}`}>
               <div className={inputBox}>
                 <input id={`cam-${id}`} name="camion" required placeholder="ex. Prelată 24 t · CJ 12 ABC" className={inputCls} />
@@ -199,13 +218,14 @@ export function AcceptTruck({
         Acceptă camionul
       </button>
       {open && <Modal open={open} onClose={() => setOpen(false)} title={state.ok ? "Camionul e rezervat pentru tine" : "Accepți acest camion?"}>
-        {!loggedIn || state.login ? (
+        {state.login ? (
           <NeedAccount next={next} onClose={() => setOpen(false)} />
         ) : state.ok ? (
           <Done state={state} what="camionul" onClose={() => setOpen(false)} />
         ) : (
           <form action={action} className="flex flex-col gap-3.5 px-6 pt-2 pb-6">
             <Summary>{summary}</Summary>
+            {!loggedIn && <GuestContact id={id} />}
             <Field label="Pentru ce marfă" htmlFor={`mf-${id}`}>
               <div className={inputBox}>
                 <select id={`mf-${id}`} name="marfa_id" value={choice} onChange={(e) => setChoice(e.target.value)} className={`${inputCls} cursor-pointer`}>

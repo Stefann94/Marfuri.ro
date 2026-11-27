@@ -30,11 +30,26 @@ async function place(fd: FormData, cityKey: string, countryKey: string) {
   return { country, city: known?.name ?? name, slug: known?.slug ?? slugify(name), lat: known?.lat ?? null, lng: known?.lng ?? null };
 }
 
+/** Temporar, fără obligația de cont: cine nu e logat publică și acceptă ca firma „Vizitator”. */
+const GUEST_SLUG = "vizitator-fara-cont";
+async function actor() {
+  const user = await getCurrentUser();
+  if (user) return { guest: false, userId: user.id as number | null, companyId: user.company.id, name: user.name, phone: user.phone };
+  let [co] = await db.select({ id: companies.id }).from(companies).where(eq(companies.slug, GUEST_SLUG));
+  if (!co) {
+    [co] = await db
+      .insert(companies)
+      .values({ slug: GUEST_SLUG, name: "Vizitator (fără cont)", kind: "shipper", country: "RO", city: "București" })
+      .onConflictDoUpdate({ target: companies.slug, set: { slug: GUEST_SLUG } })
+      .returning({ id: companies.id });
+  }
+  return { guest: true, userId: null as number | null, companyId: co.id, name: "", phone: "" };
+}
+
 /* ------------------------------------------------------------ Caută camion (marfă nouă) */
 
 export async function publishLoad(_: PublishState, fd: FormData): Promise<PublishState> {
-  const user = await getCurrentUser();
-  if (!user) redirect("/cont/autentificare?next=/cauta-camion");
+  const user = await actor();
 
   const from = await place(fd, "din_oras", "din_tara");
   const to = await place(fd, "spre_oras", "spre_tara");
@@ -56,6 +71,7 @@ export async function publishLoad(_: PublishState, fd: FormData): Promise<Publis
   if (!askOffers && !price) return { error: "Scrie prețul oferit sau alege „Aștept oferte”." };
   const contactName = str(fd, "contact_nume", 120) || user.name;
   const contactPhone = str(fd, "contact_tel", 40) || user.phone;
+  if (user.guest && (!contactName || !contactPhone)) return { error: "Scrie persoana de contact și telefonul, ca să te poată suna cine acceptă." };
 
   const extra = [
     str(fd, "adresa_inc", 160) && `Încărcare: ${str(fd, "adresa_inc", 160)}`,
@@ -76,8 +92,8 @@ export async function publishLoad(_: PublishState, fd: FormData): Promise<Publis
   const [row] = await db
     .insert(loads)
     .values({
-      companyId: user.company.id,
-      createdBy: user.id,
+      companyId: user.companyId,
+      createdBy: user.userId,
       fromCountry: from.country,
       fromCity: from.city,
       fromCitySlug: from.slug,
@@ -108,8 +124,7 @@ export async function publishLoad(_: PublishState, fd: FormData): Promise<Publis
 /* ------------------------------------------------------------ Caută marfă (camion liber) */
 
 export async function publishTruck(_: PublishState, fd: FormData): Promise<PublishState> {
-  const user = await getCurrentUser();
-  if (!user) redirect("/cont/autentificare?next=/cauta-marfa");
+  const user = await actor();
 
   const from = await place(fd, "din_oras", "din_tara");
   if (!from) return { error: "Scrie orașul în care e camionul." };
@@ -126,6 +141,8 @@ export async function publishTruck(_: PublishState, fd: FormData): Promise<Publi
   if (!vehicle) return { error: "Alege tipul camionului." };
   const capacityT = num(fd, "capacitate");
   if (!capacityT || capacityT > 40) return { error: "Scrie capacitatea camionului, în tone (cel mult 40)." };
+  if (user.guest && (!str(fd, "contact_nume", 120) || !str(fd, "contact_tel", 40)))
+    return { error: "Scrie numele și telefonul, ca să te poată suna cine acceptă." };
 
   const extra = [
     num(fd, "distanta") && `Merge până la ${num(fd, "distanta")} km pentru încărcare`,
@@ -140,8 +157,8 @@ export async function publishTruck(_: PublishState, fd: FormData): Promise<Publi
   const [row] = await db
     .insert(trucks)
     .values({
-      companyId: user.company.id,
-      createdBy: user.id,
+      companyId: user.companyId,
+      createdBy: user.userId,
       fromCountry: from.country,
       fromCity: from.city,
       fromCitySlug: from.slug,
@@ -167,26 +184,35 @@ export async function publishTruck(_: PublishState, fd: FormData): Promise<Publi
 
 /* ------------------------------------------------------------ acceptare */
 
+/** Pentru vizitatori: contactul lor intră în nota acceptării (false = lipsește). */
+function guestContact(user: { guest: boolean }, fd: FormData): string | false {
+  if (!user.guest) return "";
+  const name = str(fd, "contact_nume", 120);
+  const phone = str(fd, "contact_tel", 40);
+  return name && phone ? ` · Contact: ${name}, ${phone}` : false;
+}
+
 export async function acceptLoad(id: number, _: AcceptState, fd: FormData): Promise<AcceptState> {
-  const user = await getCurrentUser();
-  if (!user) return { login: true };
+  const user = await actor();
   const truck = str(fd, "camion", 160);
   if (!truck) return { error: "Scrie cu ce camion faci cursa." };
   if (!fd.get("disponibil")) return { error: "Confirmă că ai camionul disponibil la data încărcării." };
   const price = num(fd, "pret");
+  const guest = guestContact(user, fd);
+  if (guest === false) return { error: "Scrie numele și telefonul tău." };
 
   const [row] = await db
     .update(loads)
     .set({
       status: "accepted",
-      acceptedByCompanyId: user.company.id,
-      acceptedByUserId: user.id,
+      acceptedByCompanyId: user.companyId,
+      acceptedByUserId: user.userId,
       acceptedAt: new Date(),
-      acceptNote: truck,
+      acceptNote: truck + guest,
       acceptPrice: price ? Math.round(price) : null,
       updatedAt: new Date(),
     })
-    .where(and(eq(loads.id, id), eq(loads.status, "active"), ne(loads.companyId, user.company.id)))
+    .where(and(eq(loads.id, id), eq(loads.status, "active"), ...(user.guest ? [] : [ne(loads.companyId, user.companyId)])))
     .returning({ companyId: loads.companyId, contactName: loads.contactName, contactPhone: loads.contactPhone });
   if (!row) return { error: "Cererea nu mai e disponibilă: a acceptat-o deja altcineva sau e chiar cererea ta." };
   const [co] = await db.select({ name: companies.name, phone: companies.phone }).from(companies).where(eq(companies.id, row.companyId));
@@ -195,32 +221,33 @@ export async function acceptLoad(id: number, _: AcceptState, fd: FormData): Prom
 }
 
 export async function acceptTruck(id: number, _: AcceptState, fd: FormData): Promise<AcceptState> {
-  const user = await getCurrentUser();
-  if (!user) return { login: true };
+  const user = await actor();
   const choice = str(fd, "marfa_id", 20);
   let note = str(fd, "marfa", 300);
   if (choice && choice !== "nou") {
     const [l] = await db
       .select({ fromCity: loads.fromCity, toCity: loads.toCity, loadDate: loads.loadDate, weightT: loads.weightT, goods: loads.goods })
       .from(loads)
-      .where(and(eq(loads.id, Number(choice)), eq(loads.companyId, user.company.id)));
+      .where(and(eq(loads.id, Number(choice)), eq(loads.companyId, user.companyId)));
     if (l) note = `${l.fromCity} → ${l.toCity}, ${l.loadDate}${l.weightT ? `, ${l.weightT} t` : ""}${l.goods ? `, ${l.goods}` : ""}${note ? `. ${note}` : ""}`;
   }
   if (!note) return { error: "Descrie pe scurt marfa pe care i-o trimiți (rută, dată, greutate)." };
   const price = num(fd, "pret");
+  const guest = guestContact(user, fd);
+  if (guest === false) return { error: "Scrie numele și telefonul tău." };
 
   const [row] = await db
     .update(trucks)
     .set({
       status: "accepted",
-      acceptedByCompanyId: user.company.id,
-      acceptedByUserId: user.id,
+      acceptedByCompanyId: user.companyId,
+      acceptedByUserId: user.userId,
       acceptedAt: new Date(),
-      acceptNote: note,
+      acceptNote: note + guest,
       acceptPrice: price ? Math.round(price) : null,
       updatedAt: new Date(),
     })
-    .where(and(eq(trucks.id, id), eq(trucks.status, "active"), ne(trucks.companyId, user.company.id)))
+    .where(and(eq(trucks.id, id), eq(trucks.status, "active"), ...(user.guest ? [] : [ne(trucks.companyId, user.companyId)])))
     .returning({ companyId: trucks.companyId, contactName: trucks.contactName, contactPhone: trucks.contactPhone });
   if (!row) return { error: "Camionul nu mai e disponibil: l-a acceptat deja altcineva sau e chiar camionul tău." };
   const [co] = await db.select({ name: companies.name, phone: companies.phone }).from(companies).where(eq(companies.id, row.companyId));
