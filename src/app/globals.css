@@ -52,6 +52,11 @@
     @apply bg-slate-50 text-slate-800 antialiased;
     font-feature-settings: "cv11", "ss01";
   }
+  /* Paginile de cereri (Caută marfă / camion, Am marfă / camion liber, Firme, Contul meu) au fundal cald:
+     aceeași culoare și sub conținut, până la subsol, nu o bandă de altă culoare. */
+  body:has([data-fundal-cald]) {
+    background-color: #f3f1f0;
+  }
   :focus-visible {
     outline: 2px solid var(--color-brand-500);
     outline-offset: 2px;

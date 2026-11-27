@@ -10,8 +10,8 @@ next-env.d.ts
 deploy/.env
 deploy/backups
 
-# Baza de date locală (PGlite)
-data/
+# Baza de date locală (PGlite) și fișierele GeoNames — doar folderul din rădăcină, nu și scripts/data
+/data/
 
 # Documente interne (analize, specificații, prețuri) — rămân doar local
 docs/
