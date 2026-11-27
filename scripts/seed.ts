@@ -12,7 +12,7 @@ import { slugify } from "../src/lib/text.ts";
 
 if (process.env.NODE_ENV === "production") throw new Error("Seed-ul nu rulează în producție.");
 
-const client = postgres(process.env.DATABASE_URL!, { max: 1 });
+const client = postgres(process.env.DATABASE_URL!, { max: 1, prepare: false });
 const db = drizzle(client);
 
 // Generator determinist, ca datele să fie aceleași la fiecare rulare.

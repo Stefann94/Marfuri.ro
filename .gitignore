@@ -4,6 +4,7 @@ out
 data/*.db*
 .env*.local
 .env
+.env.supabase
 next-env.d.ts
 *.tsbuildinfo
 deploy/.env

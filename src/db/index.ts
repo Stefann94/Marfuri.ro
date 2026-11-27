@@ -7,7 +7,8 @@ const globalForDb = globalThis as unknown as { pgClient?: ReturnType<typeof post
 function createClient() {
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error("DATABASE_URL lipsește (vezi .env.example).");
-  return postgres(url, { max: Number(process.env.DB_POOL_MAX ?? 10), idle_timeout: 30 });
+  // prepare: false — „Transaction pooler”-ul din Supabase (portul 6543) nu păstrează prepared statements între cereri
+  return postgres(url, { max: Number(process.env.DB_POOL_MAX ?? 10), idle_timeout: 30, prepare: false });
 }
 
 const client = globalForDb.pgClient ?? createClient();
