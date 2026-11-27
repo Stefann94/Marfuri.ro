@@ -2,7 +2,8 @@ import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { fmtInt } from "@/lib/format";
-import type { RouteSupply, TopCities } from "@/lib/queries";
+import type { RouteSupply } from "@/lib/queries";
+import type { CountryItem } from "@/lib/places";
 import { Ban, Calc, Paste, Plus, Search, Shield, Star, Truck } from "@/components/icons";
 import { HeroSearch } from "./HeroSearch";
 import { HeroTrasee } from "./HeroTrasee";
@@ -34,7 +35,7 @@ const Skew = ({ className }: { className: string }) => <span aria-hidden classNa
  * mergând spre dreapta, unde stau căutarea, publicarea, verificarea firmei și uneltele.
  * Pe ecran de laptop (1440×900) încape întreg, cu tot cu navbarul.
  */
-export function HeroPrimEcran({ stats, cities, routes }: { stats: Stats; cities: TopCities; routes: RouteSupply[] }) {
+export function HeroPrimEcran({ stats, countries, routes }: { stats: Stats; countries: CountryItem[]; routes: RouteSupply[] }) {
   const nums = [
     [stats.loads, "mărfuri active"],
     [stats.trucks, "camioane libere"],
@@ -92,7 +93,7 @@ export function HeroPrimEcran({ stats, cities, routes }: { stats: Stats; cities:
 
         {/* Dreapta: tot ce poți face */}
         <div className="order-2 flex min-w-0 flex-col gap-4">
-          <HeroSearch loads={stats.loads} trucks={stats.trucks} cities={cities} />
+          <HeroSearch loads={stats.loads} trucks={stats.trucks} countries={countries} />
 
           <div className="flex flex-wrap items-center gap-4">
             <Link href="/am-marfa" className="group relative flex items-center gap-[9px] px-[22px] py-[13px] text-[15px] font-extrabold whitespace-nowrap text-white">

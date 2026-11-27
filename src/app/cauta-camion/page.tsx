@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { getCurrentUser } from "@/lib/auth";
 import { PageHead } from "@/components/cereri/ui";
-import { CereriShell, LOAD_STEPS, NeedAccountCard, formData } from "@/components/cereri/pages";
+import { CereriShell, NeedAccountCard, formData } from "@/components/cereri/pages";
 import { PublishLoadForm } from "@/components/cereri/PublishForms";
 
 export const metadata: Metadata = {
@@ -18,7 +18,6 @@ export default async function CautaCamionPage() {
         crumb="Caută camion"
         title="Caută camion pentru marfa ta"
         sub="Completezi cererea o singură dată. Transportatorii o văd la „Am camion liber” și o pot accepta; tu primești datele firmei care a acceptat."
-        steps={LOAD_STEPS}
       />
       {user ? (
         <PublishLoadForm who={{ company: user.company.name, verified: user.company.verified, name: user.name, phone: user.phone }} {...formData()} />

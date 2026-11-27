@@ -15,6 +15,13 @@
       "when": 1795769597750,
       "tag": "0001_conturi_si_acceptare",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1795772373759,
+      "tag": "0002_nomenclator_localitati",
+      "breakpoints": true
     }
   ]
 }

@@ -6,13 +6,13 @@ import { TruckLogo } from "@/components/brand/TruckLogo";
 export function SiteFooter() {
   const year = new Date().getFullYear();
   return (
-    <footer className="mt-24 border-t border-line bg-white">
+    <footer className="mt-24 bg-gradient-to-b from-[#363B43] to-[#1B1E23] text-white">
       <div className="container-page grid gap-10 py-14 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
         <div>
           <Link href="/" aria-label={`${SITE.name}, pagina principală`} className="inline-block">
             <TruckLogo idPrefix="mff" className="h-[52px] w-auto" />
           </Link>
-          <p className="mt-4 max-w-xs text-sm leading-relaxed text-muted">
+          <p className="mt-4 max-w-xs text-sm leading-relaxed text-[#C9CDD2]">
             {SITE.tagline} pentru România și Europa. Transportatori și expeditori verificați, care se găsesc rapid unii pe alții.
           </p>
         </div>
@@ -36,8 +36,8 @@ export function SiteFooter() {
           ))}
         </FooterCol>
       </div>
-      <div className="border-t border-line">
-        <div className="container-page flex flex-col gap-2 py-6 text-xs text-muted sm:flex-row sm:justify-between">
+      <div className="border-t border-white/10">
+        <div className="container-page flex flex-col gap-2 py-6 text-xs text-[#9AA0A8] sm:flex-row sm:justify-between">
           <p>© {year} {SITE.name}. Toate drepturile rezervate.</p>
           <p>Acoperim {COUNTRIES.length} de țări din Europa.</p>
         </div>
@@ -49,7 +49,7 @@ export function SiteFooter() {
 function FooterCol({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div>
-      <p className="text-sm font-semibold text-ink">{title}</p>
+      <p className="text-sm font-semibold text-white">{title}</p>
       <ul className="mt-4 space-y-2.5 text-sm">{children}</ul>
     </div>
   );
@@ -58,7 +58,7 @@ function FooterCol({ title, children }: { title: string; children: React.ReactNo
 function FooterLink({ href, children }: { href: string; children: React.ReactNode }) {
   return (
     <li>
-      <Link href={href} className="text-muted hover:text-brand-700">{children}</Link>
+      <Link href={href} className="text-[#C9CDD2] hover:text-white">{children}</Link>
     </li>
   );
 }

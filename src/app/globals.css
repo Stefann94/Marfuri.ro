@@ -65,8 +65,13 @@
   label[for] {
     cursor: pointer;
   }
-  h1, h2, h3 {
-    @apply tracking-tight text-slate-900;
+  /* Titlurile și subtitlurile: același font ca meniul (Russo One cu Ț corect), doar grosimea lui normală */
+  h1, h2, h3, h4 {
+    @apply text-slate-900;
+    font-family: var(--font-logo);
+    font-weight: 400;
+    font-synthesis: none;
+    letter-spacing: normal;
     text-wrap: balance;
   }
 }
@@ -122,19 +127,6 @@
   }
 }
 
-/* Ț/ț compus pentru Russo One (vezi components/brand/RoText.tsx): virgula fontului sub T, la înălțimea celei de la Ș */
-.ro-virgula {
-  display: inline-block;
-  position: relative;
-}
-.ro-virgula::after {
-  content: ",";
-  position: absolute;
-  left: 50%;
-  top: 0.18em;
-  transform: translateX(-50%);
-}
-
 /* Derulatorul cu trasee din hero: punctul activ se umple în 7 s, apoi apare ecranul următor (vezi TraseeDerulator.tsx) */
 @keyframes trasee-fill {
   from {
@@ -142,5 +134,27 @@
   }
   to {
     transform: scaleX(1);
+  }
+}
+
+/* Fereastra „De unde / Până unde”: glisare spre orașe (pp-in) și înapoi spre țări (pp-back) */
+@keyframes pp-in {
+  from {
+    opacity: 0;
+    transform: translateX(28px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes pp-back {
+  from {
+    opacity: 0;
+    transform: translateX(-28px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
   }
 }

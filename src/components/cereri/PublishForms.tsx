@@ -39,7 +39,7 @@ function Select({ name, label, options, optional }: { name: string; label: strin
 
 function Side({ who, preview, button, note, after }: { who: Who; preview: ReactNode; button: ReactNode; note: string; after: string[] }) {
   return (
-    <aside className="flex flex-col gap-4 lg:sticky lg:top-24">
+    <aside className="flex flex-col gap-4 lg:sticky lg:top-[173px] xl:top-[124px]">
       <div>
         <div className="mb-2 ml-0.5 text-[11.5px] font-extrabold tracking-[0.07em] text-[#6B717A] uppercase">Publici ca</div>
         <div className="flex items-center gap-3 rounded-2xl border border-[#E4E0DE] bg-white px-4 py-3.5">
@@ -158,7 +158,7 @@ export function PublishLoadForm({ who, cities, countries, today, vehicles }: Com
           </div>
         </FormSection>
 
-        <FormSection n={5} title={<>Pre<span className="ro-virgula">t</span></>} hint="Un preț clar aduce acceptări mai rapide.">
+        <FormSection n={5} title="Preț" hint="Un preț clar aduce acceptări mai rapide.">
           <div className="inline-flex rounded-xl border border-[#E4E0DE] bg-[#F7F5F4] p-1">
             {[
               ["pret", "Ofer un preț"],
@@ -320,7 +320,7 @@ export function PublishTruckForm({ who, cities, countries, today, vehicles }: Co
           </div>
         </FormSection>
 
-        <FormSection n={5} title={<>Pre<span className="ro-virgula">t</span> dorit</>} hint="Opțional. Dacă îl lași gol, firmele cu marfă îți fac ele oferte.">
+        <FormSection n={5} title="Preț dorit" hint="Opțional. Dacă îl lași gol, firmele cu marfă îți fac ele oferte.">
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             <Input name="pret_km" label="Pe km" optional inputMode="decimal" placeholder="1,10" unit="€/km" />
             <Input name="pret_cursa" label="Sau pe cursă" optional inputMode="numeric" placeholder="1.400" unit="€" />

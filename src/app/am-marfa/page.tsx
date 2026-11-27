@@ -46,12 +46,6 @@ export default async function AmMarfaPage({ searchParams }: { searchParams: Prom
         crumb="Am marfă de transportat"
         title="Camioane libere care caută marfă"
         sub="Transportatorii care au anunțat un camion liber, la „Caută marfă”. Acceptă unul potrivit pentru marfa ta: îi trimiți marfa, iar el primește datele tale."
-        steps={[
-          ["Alegi un camion", "Filtrezi după rută, dată și tip"],
-          ["Îl accepți", "Alegi marfa pe care i-o trimiți"],
-          ["Transportatorul e anunțat", "Vede în contul lui datele tale"],
-          ["Vă înțelegeți direct", "Camionul dispare din listă pentru ceilalți"],
-        ]}
       />
       <div className="grid grid-cols-1 items-start gap-[26px] pt-[26px] pb-[70px] lg:grid-cols-[280px_minmax(0,1fr)]">
         <ListFilters action="/am-marfa" p={{ fromCity: f.fromCity, toCity: f.toCity, date: f.date, vehicle: f.vehicle, weight: f.weight, verified }} weightLabel="Capacitate de cel puțin" />

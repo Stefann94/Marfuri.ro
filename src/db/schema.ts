@@ -24,6 +24,32 @@ export const companies = pgTable(
   (t) => [index("companies_vat_idx").on(t.vatCode)],
 );
 
+/** Nomenclator: țările din bursă (nume în română), în ordinea în care le arătăm. */
+export const countries = pgTable("countries", {
+  code: char("code", { length: 2 }).primaryKey(),
+  name: varchar("name", { length: 80 }).notNull(),
+  slug: varchar("slug", { length: 80 }).notNull().unique(),
+  sort: integer("sort").notNull().default(100),
+});
+
+/** Nomenclator: localități (din GeoNames), cu regiunea, coordonatele și un câmp de căutare fără diacritice. */
+export const cities = pgTable(
+  "cities",
+  {
+    id: integer("id").primaryKey(),
+    country: char("country", { length: 2 }).notNull().references(() => countries.code, { onDelete: "cascade" }),
+    name: varchar("name", { length: 120 }).notNull(),
+    slug: varchar("slug", { length: 140 }).notNull(),
+    region: varchar("region", { length: 120 }),
+    lat: real("lat").notNull(),
+    lng: real("lng").notNull(),
+    population: integer("population").notNull().default(0),
+    /** numele + variante (ASCII, alte limbi), normalizate: „cluj napoca cluj klausenburg …” */
+    search: text("search").notNull(),
+  },
+  (t) => [index("cities_country_pop_idx").on(t.country, t.population), index("cities_slug_idx").on(t.slug)],
+);
+
 /** Conturi: o persoană care lucrează pentru o firmă (identificată prin CUI). */
 export const users = pgTable(
   "users",
@@ -145,5 +171,6 @@ export const trucks = pgTable(
 
 export type Company = typeof companies.$inferSelect;
 export type User = typeof users.$inferSelect;
+export type CityRow = typeof cities.$inferSelect;
 export type Load = typeof loads.$inferSelect;
 export type Truck = typeof trucks.$inferSelect;

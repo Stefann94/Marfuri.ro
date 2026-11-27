@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Plus_Jakarta_Sans, Russo_One } from "next/font/google";
+import { Inter, Plus_Jakarta_Sans } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { SITE } from "@/lib/site";
 import { SiteFooter } from "@/components/SiteChrome";
@@ -7,8 +8,8 @@ import { SiteHeader, type NavUser } from "@/components/nav/SiteHeader";
 import { getCurrentUser, initials } from "@/lib/auth";
 
 const inter = Inter({ subsets: ["latin", "latin-ext"], display: "swap", variable: "--font-inter" });
-// Fontul literelor de pe logo (TIR-ul Mărfuri.ro)
-const russo = Russo_One({ weight: "400", subsets: ["latin", "latin-ext"], display: "swap", variable: "--font-russo" });
+// Fontul titlurilor și al meniului: Russo One cu Ț/ț corecte (vezi src/app/fonts/MarfuriTitluri-OFL.txt)
+const russo = localFont({ src: "./fonts/MarfuriTitluri.woff2", weight: "400", display: "swap", variable: "--font-russo" });
 // Titlurile mari (hero)
 const jakarta = Plus_Jakarta_Sans({ weight: "800", subsets: ["latin", "latin-ext"], display: "swap", variable: "--font-jakarta" });
 

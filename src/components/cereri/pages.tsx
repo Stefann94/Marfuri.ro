@@ -56,17 +56,3 @@ export const formData = () => ({
   vehicles: VEHICLES.map((v) => ({ slug: v.slug, short: v.short })),
   today: new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Bucharest" }),
 });
-
-export const LOAD_STEPS: [string, ReactNode][] = [
-  ["Completezi cererea", "Ruta, data, marfa și camionul de care ai nevoie"],
-  ["Apare la „Am camion liber”", <>Transportatorii o văd imediat în <Link href="/am-camion-liber">listă</Link></>],
-  ["Un transportator o acceptă", "Doar firme cu cont și CUI"],
-  ["Primești datele lui", "Firma, telefonul și camionul, în contul tău"],
-];
-
-export const TRUCK_STEPS: [string, ReactNode][] = [
-  ["Anunți camionul liber", "Unde e, când e liber și unde vrei să ajungi"],
-  ["Apare la „Am marfă de transportat”", <>Firmele cu marfă îl văd imediat în <Link href="/am-marfa">listă</Link></>],
-  ["O firmă cu marfă te acceptă", "Doar firme cu cont și CUI"],
-  ["Primești datele ei și marfa", "Firma, telefonul și marfa, în contul tău"],
-];

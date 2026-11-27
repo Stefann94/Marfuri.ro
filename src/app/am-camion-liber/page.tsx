@@ -43,12 +43,6 @@ export default async function AmCamionLiberPage({ searchParams }: { searchParams
         crumb="Am camion liber"
         title="Marfă care caută camion"
         sub="Cererile publicate de firmele cu marfă, la „Caută camion”. Acceptă una potrivită pentru camionul tău: cererea trece în „acceptată”, iar firma primește datele tale."
-        steps={[
-          ["Alegi o cerere", "Filtrezi după rută, dată și camion"],
-          ["O accepți", "Spui cu ce camion faci cursa"],
-          ["Firma e anunțată", "Vede în contul ei datele tale"],
-          ["Vă înțelegeți direct", "Cererea dispare din listă pentru ceilalți"],
-        ]}
       />
       <div className="grid grid-cols-1 items-start gap-[26px] pt-[26px] pb-[70px] lg:grid-cols-[280px_minmax(0,1fr)]">
         <ListFilters action="/am-camion-liber" p={{ fromCity: f.fromCity, toCity: f.toCity, date: f.date, vehicle: f.vehicle, weight: f.weight, verified }} weightLabel="Greutate până la" />

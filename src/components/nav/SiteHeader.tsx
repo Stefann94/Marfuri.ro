@@ -6,7 +6,6 @@ import {
 } from "@/components/icons";
 import { Dropdown, MobileTabBar, NavLink, navTrack, skewBg } from "./NavClient";
 import { LiveTicker } from "./LiveTicker";
-import { RoText } from "@/components/brand/RoText";
 
 export type NavNotification = { id: string; title: string; text: string; when: string; unread: boolean; kind: "load" | "offer" | "doc" | "rating" };
 export type NavUser = { company: string; initials: string; verified: boolean; unreadMessages: number; notifications: NavNotification[] };
@@ -321,9 +320,7 @@ export function SiteHeader({ user, sticky = true }: { user: NavUser | null; stic
             {!user && (
               <>
                 <NavSep />
-                <NavLink href="/preturi" sub="publicare gratuită">
-                  <RoText>Prețuri</RoText>
-                </NavLink>
+                <NavLink href="/preturi" sub="publicare gratuită">Prețuri</NavLink>
               </>
             )}
           </nav>

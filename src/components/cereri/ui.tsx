@@ -25,7 +25,7 @@ export const btnCls = (size: "sm" | "md" | "lg" = "md", tone: "red" | "dark" | "
     tone === "light" ? "text-ink" : "text-white"
   } ${size === "sm" ? "h-[38px] px-4 text-sm" : size === "lg" ? "h-[54px] px-7 text-[16.5px]" : "h-[46px] px-[22px] text-[15px]"}`;
 
-export function PageHead({ crumb, title, sub, steps, on = 0 }: { crumb: string; title: string; sub: ReactNode; steps: [string, ReactNode][]; on?: number }) {
+export function PageHead({ crumb, title, sub }: { crumb: string; title: string; sub: ReactNode }) {
   return (
     <div className="pt-[30px] pb-2">
       <nav aria-label="Navigare" className="text-[13.5px] font-medium text-[#6B717A]">
@@ -33,23 +33,6 @@ export function PageHead({ crumb, title, sub, steps, on = 0 }: { crumb: string; 
       </nav>
       <h1 className="mt-2 font-logo text-[25px] leading-[1.15] font-normal tracking-normal text-ink sm:text-[34px]">{title}</h1>
       <p className="mt-2 max-w-[760px] text-[15px] text-[#3A404A] sm:text-[16.5px]">{sub}</p>
-      <ol className="mt-[22px] flex flex-col overflow-hidden rounded-[14px] border border-[#E4E0DE] bg-white md:flex-row">
-        {steps.map(([t, s], i) => (
-          <li key={t} className={`flex flex-1 items-center gap-3 px-[18px] py-3.5 ${i ? "border-t border-[#E4E0DE] md:border-t-0 md:border-l" : ""}`}>
-            <span
-              className={`flex size-[30px] shrink-0 items-center justify-center rounded-lg border font-logo text-sm ${
-                i === on ? "border-brand-600 bg-brand-600 text-white" : "border-[#E4E0DE] bg-[#F7F5F4] text-graphite"
-              }`}
-            >
-              {i + 1}
-            </span>
-            <span>
-              <b className="block text-sm leading-[1.3] font-bold text-ink">{t}</b>
-              <span className="block text-[12.5px] leading-[1.35] font-medium text-[#6B717A] [&_a]:text-brand-600 [&_a]:underline">{s}</span>
-            </span>
-          </li>
-        ))}
-      </ol>
     </div>
   );
 }

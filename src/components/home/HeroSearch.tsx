@@ -1,14 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode, type RefObject } from "react";
-import { CITIES, COUNTRIES, countryByCode, haversineKm } from "@/lib/geo";
-import { normalize } from "@/lib/text";
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { VEHICLES } from "@/lib/vehicles";
 import { fmtInt } from "@/lib/format";
-import type { TopCities, TopCity } from "@/lib/queries";
+import type { CountryItem } from "@/lib/places";
 import { Bell, Box, Calendar, ChevronDown, Pin, Search, Truck } from "@/components/icons";
-import { Chip, CountryBadge, HeroPopover, PickRow, SectionLabel } from "./HeroPopover";
+import { Chip, HeroPopover, PickRow } from "./HeroPopover";
+import { PlacePicker, type Place } from "./PlacePicker";
 
 /** „1.030 de oferte”, „5 oferte”: în română, de la 20 în sus (și la 0) se pune „de”. */
 function roCount(n: number, one: string, many: string) {
@@ -19,8 +18,6 @@ function roCount(n: number, one: string, many: string) {
 
 type Role = "camion" | "marfa";
 type Open = "from" | "to" | "date" | "truck" | "w8" | null;
-/** Un loc: oraș (cu țara, dacă e ales din listă), țară întreagă sau text liber. */
-type Place = { text: string; country?: string; whole?: boolean };
 
 /* ------------------------------------------------------------------ date */
 
@@ -82,39 +79,6 @@ const WEIGHTS: { t: string; name: string; sub: string; fill: number }[] = [
 ];
 const tons = (t: string) => `${t.replace(".", ",")} t`;
 
-/* ------------------------------------------------------------------ orașe */
-
-const EU_CHIPS = ["RO", "DE", "IT", "FR", "HU", "NL"];
-const NORM_CITIES = CITIES.map((c) => ({ ...c, n: normalize(c.name) }));
-const NORM_COUNTRIES = COUNTRIES.map((c) => ({ ...c, n: normalize(c.name) }));
-
-type CityOption = { kind: "city"; name: string; country: string; count?: number } | { kind: "country"; code: string; name: string };
-
-function searchPlaces(q: string): CityOption[] {
-  const n = normalize(q);
-  if (!n) return [];
-  const countries = NORM_COUNTRIES.filter((c) => c.n.startsWith(n) || c.code.toLowerCase() === n)
-    .slice(0, 2)
-    .map((c): CityOption => ({ kind: "country", code: c.code, name: c.name }));
-  const starts = NORM_CITIES.filter((c) => c.n.startsWith(n));
-  const contains = NORM_CITIES.filter((c) => !c.n.startsWith(n) && c.n.includes(n));
-  const cities = [...starts, ...contains].slice(0, 7).map((c): CityOption => ({ kind: "city", name: c.name, country: c.country }));
-  return [...countries, ...cities];
-}
-
-/** Evidențiază partea scrisă de utilizator în numele orașului. */
-function Highlight({ text, q }: { text: string; q: string }) {
-  const i = normalize(text).indexOf(normalize(q));
-  if (!q || i < 0) return <>{text}</>;
-  return (
-    <>
-      {text.slice(0, i)}
-      <span className="text-brand-600">{text.slice(i, i + q.trim().length)}</span>
-      {text.slice(i + q.trim().length)}
-    </>
-  );
-}
-
 /* ------------------------------------------------------------------ câmpul */
 
 function Field({
@@ -163,115 +127,7 @@ function Field({
 
 const valueText = (empty: boolean) =>
   `block w-full truncate pr-8 text-left text-base ${empty ? "font-semibold text-[#5E636B]" : "font-bold text-ink"}`;
-const input =
-  "w-full min-w-0 cursor-pointer bg-transparent p-0 pr-8 text-base font-bold text-ellipsis text-ink outline-none placeholder:font-semibold placeholder:text-[#5E636B]";
 const Div = () => <span aria-hidden className="hidden h-[34px] w-px shrink-0 bg-[#D9D2D0] sm:block" />;
-
-/* ------------------------------------------------------------------ fereastra cu orașe */
-
-function CityPicker({
-  which,
-  place,
-  typed,
-  top,
-  unit,
-  active,
-  setActive,
-  onPick,
-  onLocate,
-  locating,
-}: {
-  which: "from" | "to";
-  place: Place;
-  typed: boolean;
-  top: TopCity[];
-  unit: (n: number) => string;
-  active: number;
-  setActive: (i: number) => void;
-  onPick: (p: Place) => void;
-  onLocate?: () => void;
-  locating: "idle" | "busy" | "error";
-}) {
-  const q = typed ? place.text.trim() : "";
-  const counts = useMemo(() => new Map(top.map((c) => [`${c.country}:${normalize(c.name)}`, c.n])), [top]);
-  const options = useOptions(q, top);
-  const pick = (o: CityOption) =>
-    onPick(o.kind === "city" ? { text: o.name, country: o.country } : { text: o.name, country: o.code, whole: true });
-  const isSel = (o: CityOption) =>
-    !typed && (o.kind === "city" ? !place.whole && place.text === o.name && place.country === o.country : !!place.whole && place.country === o.code);
-
-  const row = (o: CityOption, i: number) => {
-    const count = o.kind === "city" ? (o.count ?? counts.get(`${o.country}:${normalize(o.name)}`)) : undefined;
-    return (
-      <PickRow key={o.kind + o.name} id={`${which}-opt-${i}`} selected={isSel(o)} active={active === i} onHover={() => setActive(i)} onPick={() => pick(o)}>
-        <CountryBadge code={o.kind === "city" ? o.country : o.code} />
-        <span className="min-w-0 flex-1 truncate text-[15px] font-bold">
-          <Highlight text={o.name} q={q} />
-          {o.kind === "country" && <span className="font-medium text-[#5E636B]"> · toată țara</span>}
-        </span>
-        {count ? <span className="shrink-0 text-xs font-bold text-[#5E636B]">{unit(count)}</span> : null}
-      </PickRow>
-    );
-  };
-
-  if (q) {
-    return (
-      <div role="listbox" id={`${which}-list`} className="py-1.5">
-        {options.length ? (
-          options.map(row)
-        ) : (
-          <p className="px-3.5 py-3 text-sm text-[#4A4F57]">
-            Nu avem „{q}” în listă. Căutăm oricum după ce ai scris; apasă <b>Caută</b>.
-          </p>
-        )}
-      </div>
-    );
-  }
-
-  return (
-    <div>
-      {onLocate && (
-        <button
-          type="button"
-          onClick={onLocate}
-          disabled={locating === "busy"}
-          className="flex h-10 w-full cursor-pointer items-center gap-2.5 border-b border-[#EEE7E6] px-3.5 text-left text-sm font-extrabold text-[#B8190F] hover:bg-[#F7F4F3] disabled:cursor-wait"
-        >
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#C8201A" strokeWidth="2.4" strokeLinecap="round" aria-hidden>
-            <circle cx="12" cy="12" r="4" />
-            <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
-          </svg>
-          {locating === "busy" ? "Caut locația…" : locating === "error" ? "Nu am putut afla locația. Scrie orașul." : "Folosește locația mea"}
-        </button>
-      )}
-      {options.length > 0 && (
-        <div role="listbox" id={`${which}-list`} className="pb-1">
-          <SectionLabel>Cele mai multe oferte</SectionLabel>
-          {options.map(row)}
-        </div>
-      )}
-      <div className="border-t border-[#EEE7E6]">
-        <SectionLabel>Țări din UE</SectionLabel>
-        <div className="flex flex-wrap gap-2 px-3.5 pb-3.5">
-          {EU_CHIPS.map((code) => (
-            <Chip key={code} on={!!place.whole && place.country === code} onClick={() => onPick({ text: countryByCode(code)!.name, country: code, whole: true })}>
-              <CountryBadge code={code} />
-              {countryByCode(code)!.name}
-            </Chip>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/** Opțiunile din fereastra de orașe: cele cu cele mai multe oferte sau rezultatele căutării. */
-function useOptions(q: string, top: TopCity[]): CityOption[] {
-  return useMemo(
-    () => (q ? searchPlaces(q) : top.map((c): CityOption => ({ kind: "city", name: c.name, country: c.country, count: c.n }))),
-    [q, top],
-  );
-}
 
 /* ------------------------------------------------------------------ calendarul */
 
@@ -430,13 +286,11 @@ function DatePicker({
  * Fiecare câmp deschide o fereastră proprie (varianta A), cu săgeată spre câmp.
  * Formular GET spre /camioane sau /marfa; valorile alese pleacă în câmpuri ascunse.
  */
-export function HeroSearch({ loads, trucks, cities }: { loads: number; trucks: number; cities: TopCities }) {
+export function HeroSearch({ loads, trucks, countries }: { loads: number; trucks: number; countries: CountryItem[] }) {
   const [role, setRole] = useState<Role>("camion");
   const [open, setOpen] = useState<Open>(null);
   const [from, setFrom] = useState<Place>({ text: "" });
   const [to, setTo] = useState<Place>({ text: "" });
-  const [typed, setTyped] = useState(false);
-  const [active, setActive] = useState(-1);
   const [locating, setLocating] = useState<"idle" | "busy" | "error">("idle");
   const [start, setStart] = useState<string | null>(null);
   const [end, setEnd] = useState<string | null>(null);
@@ -454,13 +308,8 @@ export function HeroSearch({ loads, trucks, cities }: { loads: number; trucks: n
     truck: useRef<HTMLDivElement>(null),
     w8: useRef<HTMLDivElement>(null),
   };
-  const fromInput = useRef<HTMLInputElement>(null);
-  const toInput = useRef<HTMLInputElement>(null);
 
   const action = role === "camion" ? "/camioane" : "/marfa";
-  const topFrom = role === "camion" ? cities.trucksFrom : cities.loadsFrom;
-  const topTo = role === "camion" ? cities.trucksTo : cities.loadsTo;
-  const unit = (n: number) => (role === "camion" ? roCount(n, "camion", "camioane") : roCount(n, "ofertă", "oferte"));
 
   // Clic în afară sau Esc închid fereastra.
   useEffect(() => {
@@ -479,11 +328,7 @@ export function HeroSearch({ loads, trucks, cities }: { loads: number; trucks: n
     };
   }, [open]);
 
-  const show = (o: Exclude<Open, null>) => {
-    setActive(-1);
-    setTyped(false);
-    setOpen(o);
-  };
+  const show = (o: Exclude<Open, null>) => setOpen(o);
   const toggle = (o: Exclude<Open, null>) => (open === o ? setOpen(null) : show(o));
 
   const swap = () => {
@@ -495,82 +340,44 @@ export function HeroSearch({ loads, trucks, cities }: { loads: number; trucks: n
     if (!navigator.geolocation) return setLocating("error");
     setLocating("busy");
     navigator.geolocation.getCurrentPosition(
-      ({ coords }) => {
-        let best = CITIES[0];
-        let bestKm = Infinity;
-        for (const c of CITIES) {
-          const km = haversineKm(coords.latitude, coords.longitude, c.lat, c.lng);
-          if (km < bestKm) [best, bestKm] = [c, km];
+      async ({ coords }) => {
+        try {
+          const r = await fetch(`/api/localitati?lat=${coords.latitude}&lng=${coords.longitude}`);
+          const { city } = await r.json();
+          if (!city) throw new Error("fără oraș");
+          setFrom({ text: city.name, country: city.country });
+          setLocating("idle");
+          setOpen(null);
+        } catch {
+          setLocating("error");
         }
-        setFrom({ text: best.name, country: best.country });
-        setLocating("idle");
-        setOpen(null);
       },
       () => setLocating("error"),
       { timeout: 8000, maximumAge: 600_000 },
     );
   };
 
-  /** Câmpurile de oraș: scrii și lista se filtrează; săgeți sus/jos + Enter aleg. */
+  /** Câmpurile „De unde / Până unde”: un buton care deschide fereastra cu țări și orașe. */
   const cityField = (which: "from" | "to") => {
     const place = which === "from" ? from : to;
-    const set = which === "from" ? setFrom : setTo;
-    const ref = which === "from" ? fromInput : toInput;
-    const top = which === "from" ? topFrom : topTo;
-    const q = open === which && typed ? place.text.trim() : "";
-    const options = q ? searchPlaces(q) : top.map((c): CityOption => ({ kind: "city", name: c.name, country: c.country }));
-    const onKey = (e: KeyboardEvent<HTMLInputElement>) => {
-      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-        e.preventDefault();
-        if (open !== which) return show(which);
-        const n = options.length;
-        if (n) setActive((i) => (e.key === "ArrowDown" ? (i + 1) % n : (i - 1 + n) % n));
-      } else if (e.key === "Enter" && open === which) {
-        // Enter pe o opțiune o alege; fără opțiune aleasă, Enter trimite căutarea
-        const o = options[active];
-        if (o) {
-          e.preventDefault();
-          set(o.kind === "city" ? { text: o.name, country: o.country } : { text: o.name, country: o.code, whole: true });
-          setTyped(false);
-        }
-        setOpen(null);
-      } else if (e.key === "Tab") {
-        setOpen(null);
-      }
-    };
+    const empty = !place.text;
+    const text = empty ? (which === "from" ? "Oraș de încărcare" : "Oriunde în UE") : place.text;
+    const label = which === "from" ? "De unde" : "Până unde";
     return (
       <Field
-        label={which === "from" ? "De unde" : "Până unde"}
+        label={label}
         grow={1.2}
         open={open === which}
         fieldRef={refs[which]}
-        onClick={() => {
-          if (open !== which) show(which);
-          ref.current?.focus();
-        }}
+        onClick={() => toggle(which)}
         icon={<Pin width={20} height={20} className={`shrink-0 ${which === "from" ? "text-brand-600" : "text-graphite"}`} />}
       >
-        <input
-          ref={ref}
-          value={place.text}
-          onChange={(e) => {
-            set({ text: e.target.value });
-            setTyped(true);
-            setActive(-1);
-            if (open !== which) setOpen(which);
-          }}
-          onFocus={() => open !== which && show(which)}
-          onKeyDown={onKey}
-          placeholder={which === "from" ? "Oraș de încărcare" : "Oriunde în UE"}
-          autoComplete="off"
-          role="combobox"
-          aria-expanded={open === which}
-          aria-controls={`${which}-list`}
-          aria-autocomplete="list"
-          aria-activedescendant={open === which && active >= 0 ? `${which}-opt-${active}` : undefined}
-          aria-label={which === "from" ? "De unde (oraș sau țară)" : "Până unde (oraș sau țară)"}
-          className={input}
-        />
+        <button type="button" aria-haspopup="dialog" aria-expanded={open === which} aria-label={`${label}: ${text}`} className={valueText(empty)}>
+          {text}
+          {!empty && place.country && (
+            <span className="ml-1.5 align-[1px] text-xs font-extrabold tracking-[0.04em] text-[#6B717A]">{place.whole ? "toată țara" : place.country}</span>
+          )}
+        </button>
       </Field>
     );
   };
@@ -583,7 +390,6 @@ export function HeroSearch({ loads, trucks, cities }: { loads: number; trucks: n
 
   const pickCity = (which: "from" | "to") => (p: Place) => {
     (which === "from" ? setFrom : setTo)(p);
-    setTyped(false);
     setOpen(null);
   };
 
@@ -688,14 +494,10 @@ export function HeroSearch({ loads, trucks, cities }: { loads: number; trucks: n
 
       {(open === "from" || open === "to") && (
         <HeroPopover key={open} anchor={refs[open]} card={card} width={420} title={open === "from" ? "De unde încarci?" : "Unde descarci?"} onClose={() => setOpen(null)}>
-          <CityPicker
+          <PlacePicker
             which={open}
             place={open === "from" ? from : to}
-            typed={typed}
-            top={open === "from" ? topFrom : topTo}
-            unit={unit}
-            active={active}
-            setActive={setActive}
+            countries={countries}
             onPick={pickCity(open)}
             onLocate={open === "from" ? locate : undefined}
             locating={locating}

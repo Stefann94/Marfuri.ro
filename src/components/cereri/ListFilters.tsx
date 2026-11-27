@@ -9,7 +9,7 @@ export function ListFilters({ action, p, weightLabel }: { action: string; p: Lis
   const common = ["prelata", "mega", "frigorific", "box", "platforma", "duba"];
   const n = [p.fromCity, p.toCity, p.date, p.vehicle, p.weight, p.verified].filter(Boolean).length;
   return (
-    <div className="lg:sticky lg:top-24">
+    <div className="lg:sticky lg:top-[173px] xl:top-[124px]">
       {/* Pe telefon filtrele stau ascunse sub un buton, ca rezultatele să apară imediat (merge fără JavaScript). */}
       <input type="checkbox" id="arata-filtre" className="peer sr-only" />
       <label

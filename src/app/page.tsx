@@ -3,7 +3,8 @@ import { connection } from "next/server";
 import { SITE, absUrl } from "@/lib/site";
 import { countryName, routePath, POPULAR_DESTINATIONS } from "@/lib/geo";
 import { fmtInt } from "@/lib/format";
-import { routeSupply, searchLoads, searchTrucks, siteStats, topCities, topRoutes } from "@/lib/queries";
+import { routeSupply, searchLoads, searchTrucks, siteStats, topRoutes } from "@/lib/queries";
+import { listCountries } from "@/lib/places";
 import { HeroPrimEcran } from "@/components/home/HeroPrimEcran";
 import { LoadList, TruckList } from "@/components/Listings";
 import { FaqList, JsonLd, type Faq } from "@/components/ui";
@@ -38,12 +39,12 @@ const FAQ: Faq[] = [
 
 export default async function HomePage() {
   await connection(); // conținut proaspăt la fiecare cerere; agregatele sunt în cache
-  const [stats, latestLoads, latestTrucks, routes, cities, supply] = await Promise.all([
+  const [stats, latestLoads, latestTrucks, routes, countries, supply] = await Promise.all([
     siteStats(),
     searchLoads({}, 8),
     searchTrucks({}, 6),
     topRoutes(12),
-    topCities(),
+    listCountries(),
     routeSupply(15),
   ]);
 
@@ -72,7 +73,7 @@ export default async function HomePage() {
       />
 
       {/* HERO: primul ecran (varianta 1) */}
-      <HeroPrimEcran stats={stats} cities={cities} routes={supply} />
+      <HeroPrimEcran stats={stats} countries={countries} routes={supply} />
 
       {/* ULTIMELE OFERTE */}
       <section className="container-page mt-16 grid gap-12 lg:grid-cols-[1.35fr_1fr]">
