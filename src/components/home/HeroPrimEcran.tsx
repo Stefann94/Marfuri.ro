@@ -2,8 +2,10 @@ import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { fmtInt } from "@/lib/format";
+import type { RouteSupply, TopCities } from "@/lib/queries";
 import { Ban, Calc, Paste, Plus, Search, Shield, Star, Truck } from "@/components/icons";
 import { HeroSearch } from "./HeroSearch";
+import { HeroTrasee } from "./HeroTrasee";
 import heroImg from "../../../public/brand/hero-drona.jpg";
 
 type Stats = { loads: number; trucks: number; companies: number; verified: number };
@@ -32,7 +34,7 @@ const Skew = ({ className }: { className: string }) => <span aria-hidden classNa
  * mergând spre dreapta, unde stau căutarea, publicarea, verificarea firmei și uneltele.
  * Pe ecran de laptop (1440×900) încape întreg, cu tot cu navbarul.
  */
-export function HeroPrimEcran({ stats }: { stats: Stats }) {
+export function HeroPrimEcran({ stats, cities, routes }: { stats: Stats; cities: TopCities; routes: RouteSupply[] }) {
   const nums = [
     [stats.loads, "mărfuri active"],
     [stats.trucks, "camioane libere"],
@@ -60,35 +62,37 @@ export function HeroPrimEcran({ stats }: { stats: Stats }) {
       />
 
       <div className="relative mx-auto grid max-w-[1680px] gap-6 px-4 pt-8 pb-8 md:px-10 lg:h-[764px] lg:grid-cols-[1fr_640px] lg:gap-10 lg:px-16 lg:pt-9 lg:pb-9">
-        {/* Stânga: titlul sus, cifrele jos (TIR-ul rămâne vizibil între ele) */}
-        <div className="flex min-h-[276px] min-w-0 flex-col justify-between gap-6 lg:min-h-0 lg:pt-2">
-          <div className="flex flex-col gap-4">
-            <span className="inline-flex h-[30px] w-fit items-center gap-2 bg-brand-600 pr-6 pl-3.5 text-xs font-extrabold tracking-[0.12em] text-white [clip-path:polygon(0_0,100%_0,calc(100%-10px)_100%,0_100%)]">
-              <span className="size-[7px] rounded-full bg-white" />
-              BURSA DE TRANSPORT · ROMÂNIA ȘI UE
-            </span>
-            <h1 id="hero-titlu" className="max-w-[600px] font-display text-[34px] leading-[1.05] font-extrabold tracking-[-0.02em] text-white sm:text-[42px] lg:text-[48px]">
-              Marfă și camioane,
-              <br />
-              găsite <span className="text-[#FF5A4F]">în câteva minute.</span>
-            </h1>
-          </div>
-          <dl className="flex w-fit flex-wrap items-center gap-x-[22px] gap-y-3 rounded-2xl bg-[#14161A]/70 px-[22px] py-[18px] backdrop-blur-md">
-            {nums.map(([n, label], i) => (
-              <div key={label} className="flex items-center gap-[22px]">
-                <div className="flex flex-col-reverse">
-                  <dt className="mt-[3px] text-[12.5px] font-semibold text-[#C9CDD2]">{label}</dt>
-                  <dd className="font-logo text-[26px] leading-none text-white tabular-nums">{fmtInt(n)}</dd>
+        {/* Stânga: titlul sus, traseele la mijloc, cifrele jos. Pe telefon traseele coboară sub căutare (ordinea din grilă). */}
+        <div className="contents lg:flex lg:min-w-0 lg:flex-col lg:justify-between lg:gap-6 lg:pt-2">
+          <div className="order-1 flex min-h-[276px] min-w-0 flex-col justify-between gap-6 lg:contents">
+            <div className="flex flex-col gap-4 lg:order-1">
+              <h1 id="hero-titlu" className="max-w-[600px] font-logo text-[34px] leading-[1.08] font-normal tracking-normal text-white sm:text-[42px] lg:text-[48px]">
+                Marfă și camioane,
+                <br />
+                găsite <span className="text-[#FF5A4F]">în câteva minute.</span>
+              </h1>
+            </div>
+            <dl className="flex w-fit flex-wrap items-center gap-x-[22px] gap-y-3 rounded-2xl bg-[#14161A]/70 px-[22px] py-[18px] backdrop-blur-md lg:order-3">
+              {nums.map(([n, label], i) => (
+                <div key={label} className="flex items-center gap-[22px]">
+                  <div className="flex flex-col-reverse">
+                    <dt className="mt-[3px] text-[12.5px] font-semibold text-[#C9CDD2]">{label}</dt>
+                    <dd className="font-logo text-[26px] leading-none text-white tabular-nums">{fmtInt(n)}</dd>
+                  </div>
+                  {i < nums.length - 1 && <span aria-hidden className="hidden h-[34px] w-px -skew-x-[14deg] bg-white/30 sm:block" />}
                 </div>
-                {i < nums.length - 1 && <span aria-hidden className="hidden h-[34px] w-px -skew-x-[14deg] bg-white/30 sm:block" />}
-              </div>
-            ))}
-          </dl>
+              ))}
+            </dl>
+          </div>
+          {/* Între 1024 și 1279 px coloana din stânga e prea îngustă pentru trasee */}
+          <div className="order-3 min-w-0 lg:order-2 lg:hidden xl:block">
+            <HeroTrasee routes={routes} />
+          </div>
         </div>
 
         {/* Dreapta: tot ce poți face */}
-        <div className="flex min-w-0 flex-col gap-4">
-          <HeroSearch loads={stats.loads} trucks={stats.trucks} />
+        <div className="order-2 flex min-w-0 flex-col gap-4">
+          <HeroSearch loads={stats.loads} trucks={stats.trucks} cities={cities} />
 
           <div className="flex flex-wrap items-center gap-4">
             <Link href="/publica/marfa" className="group relative flex items-center gap-[9px] px-[22px] py-[13px] text-[15px] font-extrabold whitespace-nowrap text-white">

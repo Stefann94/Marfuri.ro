@@ -56,6 +56,15 @@
     outline: 2px solid var(--color-brand-500);
     outline-offset: 2px;
   }
+  /* Tailwind 4 nu mai pune cursorul „deget” pe butoane: îl punem pe tot ce se poate apăsa */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  input:is([type="submit"], [type="button"], [type="reset"], [type="checkbox"], [type="radio"]):not(:disabled),
+  select:not(:disabled),
+  summary,
+  label[for] {
+    cursor: pointer;
+  }
   h1, h2, h3 {
     @apply tracking-tight text-slate-900;
     text-wrap: balance;
@@ -110,5 +119,28 @@
   }
   .prose-lite a {
     @apply font-medium text-brand-700 underline decoration-brand-200 underline-offset-2 hover:decoration-brand-500;
+  }
+}
+
+/* Ț/ț compus pentru Russo One (vezi components/brand/RoText.tsx): virgula fontului sub T, la înălțimea celei de la Ș */
+.ro-virgula {
+  display: inline-block;
+  position: relative;
+}
+.ro-virgula::after {
+  content: ",";
+  position: absolute;
+  left: 50%;
+  top: 0.18em;
+  transform: translateX(-50%);
+}
+
+/* Derulatorul cu trasee din hero: punctul activ se umple în 7 s, apoi apare ecranul următor (vezi TraseeDerulator.tsx) */
+@keyframes trasee-fill {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
   }
 }

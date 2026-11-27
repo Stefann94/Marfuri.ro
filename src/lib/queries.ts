@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, gte, isNull, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, isNull, lte, or, sql, type SQL } from "drizzle-orm";
 import { db } from "@/db";
 import { companies, loads, trucks } from "@/db/schema";
 import { memo } from "./memo";
@@ -16,26 +16,36 @@ export type Filters = {
   fromCity?: string;
   toCity?: string;
   date?: string;
+  /** Ultima zi din perioada aleasă (inclusiv); fără ea, „data” înseamnă „de la data X”. */
+  dateTo?: string;
   vehicle?: string;
+  /** Greutatea mărfii, în tone: marfă de cel mult atât / camion care duce cel puțin atât. */
+  weight?: number;
   page: number;
 };
 
 type SP = Record<string, string | string[] | undefined>;
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v)?.trim() || undefined;
 
-/** Citește și validează parametrii din URL (?din=RO&spre=DE&oras_din=…&data=…&vehicul=…&pagina=…). */
+const isoDate = (v: string | undefined) => (v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : undefined);
+
+/** Citește și validează parametrii din URL (?din=RO&spre=DE&oras_din=…&data=…&pana=…&vehicul=…&tone=…&pagina=…). */
 export function parseFilters(sp: SP): Filters {
   const from = countryByCode(one(sp.din))?.code;
   const to = countryByCode(one(sp.spre))?.code;
-  const date = one(sp.data);
+  const date = isoDate(one(sp.data));
+  const dateTo = isoDate(one(sp.pana));
+  const weight = Number.parseFloat((one(sp.tone) ?? "").replace(",", "."));
   const page = Math.min(200, Math.max(1, Number.parseInt(one(sp.pagina) ?? "1", 10) || 1));
   return {
     from,
     to,
     fromCity: one(sp.oras_din)?.slice(0, 60),
     toCity: one(sp.oras_spre)?.slice(0, 60),
-    date: date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : undefined,
+    date,
+    dateTo: date && dateTo && dateTo >= date ? dateTo : undefined,
     vehicle: vehicleBySlug(one(sp.vehicul))?.slug,
+    weight: weight > 0 && weight <= 40 ? Math.round(weight * 10) / 10 : undefined,
     page,
   };
 }
@@ -47,13 +57,15 @@ export function filtersToQuery(f: Filters, page?: number) {
   if (f.to) p.set("spre", f.to);
   if (f.toCity) p.set("oras_spre", f.toCity);
   if (f.date) p.set("data", f.date);
+  if (f.dateTo) p.set("pana", f.dateTo);
   if (f.vehicle) p.set("vehicul", f.vehicle);
+  if (f.weight) p.set("tone", String(f.weight));
   if (page && page > 1) p.set("pagina", String(page));
   const s = p.toString();
   return s ? `?${s}` : "";
 }
 
-export const hasFilters = (f: Filters) => Boolean(f.from || f.to || f.fromCity || f.toCity || f.date || f.vehicle);
+export const hasFilters = (f: Filters) => Boolean(f.from || f.to || f.fromCity || f.toCity || f.date || f.vehicle || f.weight);
 
 /* ------------------------------------------------------------------ marfă */
 
@@ -91,7 +103,10 @@ function loadWhere(f: Partial<Filters>) {
   if (f.fromCity) w.push(sql`${loads.fromCitySlug} like ${slugify(f.fromCity) + "%"}`);
   if (f.toCity) w.push(sql`${loads.toCitySlug} like ${slugify(f.toCity) + "%"}`);
   if (f.date) w.push(gte(loads.loadDate, f.date));
+  if (f.date && f.dateTo) w.push(lte(loads.loadDate, f.dateTo));
   if (f.vehicle) w.push(eq(loads.vehicle, f.vehicle));
+  // marfă care încape în camionul căutătorului
+  if (f.weight) w.push(lte(loads.weightT, f.weight));
   return and(...w);
 }
 
@@ -163,9 +178,16 @@ function truckWhere(f: Partial<Filters>) {
   if (f.to) w.push(or(eq(trucks.toCountry, f.to), isNull(trucks.toCountry)));
   if (f.fromCity) w.push(sql`${trucks.fromCitySlug} like ${slugify(f.fromCity) + "%"}`);
   if (f.toCity) w.push(or(sql`${trucks.toCitySlug} like ${slugify(f.toCity) + "%"}`, isNull(trucks.toCitySlug)));
-  // camioane disponibile cu cel mult 3 zile înainte/după data căutată
-  if (f.date) w.push(sql`${trucks.availableFrom} between ${f.date}::date - 3 and ${f.date}::date + 3`);
+  if (f.date && f.dateTo) {
+    // camioane libere măcar o zi din perioada aleasă
+    w.push(sql`${trucks.availableFrom} <= ${f.dateTo}::date and coalesce(${trucks.availableTo}, ${trucks.availableFrom}) >= ${f.date}::date`);
+  } else if (f.date) {
+    // camioane disponibile cu cel mult 3 zile înainte/după data căutată
+    w.push(sql`${trucks.availableFrom} between ${f.date}::date - 3 and ${f.date}::date + 3`);
+  }
   if (f.vehicle) w.push(eq(trucks.vehicle, f.vehicle));
+  // camioane care pot duce marfa (capacitatea necunoscută nu exclude camionul)
+  if (f.weight) w.push(or(gte(trucks.capacityT, f.weight), isNull(trucks.capacityT)));
   return and(...w);
 }
 
@@ -249,6 +271,34 @@ export function latestLoads(limit = 14) {
   );
 }
 
+export type TopCity = { name: string; country: string; n: number };
+export type TopCities = { loadsFrom: TopCity[]; loadsTo: TopCity[]; trucksFrom: TopCity[]; trucksTo: TopCity[] };
+
+/** Orașele cu cele mai multe oferte active (plecare / destinație), pentru ferestrele din căutarea de pe prima pagină. */
+export function topCities(limit = 6): Promise<TopCities> {
+  return memo(`topCities:${limit}`, 120_000, async () => {
+    const top = (table: typeof loads | typeof trucks, active: SQL | undefined, dir: "from" | "to") => {
+      const slug = dir === "from" ? table.fromCitySlug : table.toCitySlug;
+      const city = dir === "from" ? table.fromCity : table.toCity;
+      const country = dir === "from" ? table.fromCountry : table.toCountry;
+      return db
+        .select({ name: sql<string>`min(${city})`, country: sql<string>`min(${country})`, n: count() })
+        .from(table)
+        .where(and(active, sql`${slug} is not null`))
+        .groupBy(slug)
+        .orderBy(desc(count()))
+        .limit(limit);
+    };
+    const [loadsFrom, loadsTo, trucksFrom, trucksTo] = await Promise.all([
+      top(loads, activeLoad(), "from"),
+      top(loads, activeLoad(), "to"),
+      top(trucks, activeTruck(), "from"),
+      top(trucks, activeTruck(), "to"),
+    ]);
+    return { loadsFrom, loadsTo, trucksFrom, trucksTo };
+  });
+}
+
 export function topRoutes(limit = 12) {
   return memo(`topRoutes:${limit}`, 300_000, () =>
     db
@@ -259,6 +309,30 @@ export function topRoutes(limit = 12) {
       .orderBy(desc(count()))
       .limit(limit),
   );
+}
+
+export type RouteSupply = { from: string; to: string; loads: number; trucks: number };
+
+/**
+ * Traseele internaționale cu cele mai multe mărfuri, cu numărul de șoferi (camioane) liberi pe fiecare.
+ * Camioanele se numără ca în căutare: plecare din țara traseului, spre țara traseului sau „orice destinație”.
+ */
+export function routeSupply(limit = 5): Promise<RouteSupply[]> {
+  return memo(`routeSupply:${limit}`, 120_000, async () => {
+    const [top, t] = await Promise.all([
+      topRoutes(limit * 2),
+      db
+        .select({ from: trucks.fromCountry, to: trucks.toCountry, n: count() })
+        .from(trucks)
+        .where(activeTruck())
+        .groupBy(trucks.fromCountry, trucks.toCountry),
+    ]);
+    const byPair = new Map(t.map((r) => [`${r.from}>${r.to ?? "*"}`, r.n]));
+    return top
+      .filter((r) => r.from !== r.to)
+      .slice(0, limit)
+      .map((r) => ({ from: r.from, to: r.to, loads: r.n, trucks: (byPair.get(`${r.from}>${r.to}`) ?? 0) + (byPair.get(`${r.from}>*`) ?? 0) }));
+  });
 }
 
 /** Statistici pentru o pagină de rută: număr de oferte, preț median, vehicule frecvente. */

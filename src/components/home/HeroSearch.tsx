@@ -1,11 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useRef, useState, type MouseEvent, type ReactNode } from "react";
-import { CITIES } from "@/lib/geo";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode, type RefObject } from "react";
+import { CITIES, COUNTRIES, countryByCode, haversineKm } from "@/lib/geo";
+import { normalize } from "@/lib/text";
 import { VEHICLES } from "@/lib/vehicles";
 import { fmtInt } from "@/lib/format";
+import type { TopCities, TopCity } from "@/lib/queries";
 import { Bell, Box, Calendar, ChevronDown, Pin, Search, Truck } from "@/components/icons";
+import { Chip, CountryBadge, HeroPopover, PickRow, SectionLabel } from "./HeroPopover";
 
 /** „1.030 de oferte”, „5 oferte”: în română, de la 20 în sus (și la 0) se pune „de”. */
 function roCount(n: number, one: string, many: string) {
@@ -14,65 +17,589 @@ function roCount(n: number, one: string, many: string) {
   return `${fmtInt(n)} ${n === 0 || lastTwo === 0 || lastTwo >= 20 ? "de " : ""}${many}`;
 }
 
-/** Câmp din căutare; săgeata din dreapta arată că se deschide o listă (orașe, date, tipuri de camion). */
-function Field({ label, icon, children, grow = 1 }: { label: string; icon: ReactNode; children: ReactNode; grow?: number }) {
-  /** Un clic oriunde pe câmp deschide lista: calendarul, sugestiile de orașe sau opțiunile. */
-  const open = (e: MouseEvent<HTMLLabelElement>) => {
-    const c = e.currentTarget.querySelector<HTMLInputElement | HTMLSelectElement>("input, select");
-    if (!c || (c instanceof HTMLSelectElement && e.target === c)) return; // lista nativă se deschide singură
-    try {
-      c.showPicker?.();
-    } catch {
-      /* browserul nu permite: câmpul primește oricum focus */
-    }
-  };
+type Role = "camion" | "marfa";
+type Open = "from" | "to" | "date" | "truck" | "w8" | null;
+/** Un loc: oraș (cu țara, dacă e ales din listă), țară întreagă sau text liber. */
+type Place = { text: string; country?: string; whole?: boolean };
+
+/* ------------------------------------------------------------------ date */
+
+const MONTHS = ["ianuarie", "februarie", "martie", "aprilie", "mai", "iunie", "iulie", "august", "septembrie", "octombrie", "noiembrie", "decembrie"];
+const SHORT = ["ian", "feb", "mar", "apr", "mai", "iun", "iul", "aug", "sept", "oct", "nov", "dec"];
+const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const parse = (s: string) => {
+  const [y, m, d] = s.split("-").map(Number);
+  return new Date(y, m - 1, d);
+};
+const addDays = (s: string, n: number) => {
+  const d = parse(s);
+  d.setDate(d.getDate() + n);
+  return iso(d);
+};
+const dm = (s: string) => {
+  const d = parse(s);
+  return `${d.getDate()} ${SHORT[d.getMonth()]}`;
+};
+
+function dateLabel(start: string | null, end: string | null) {
+  if (!start) return null;
+  const today = iso(new Date());
+  const e = end ?? start;
+  if (e === start) return start === today ? "Azi" : start === addDays(today, 1) ? "Mâine" : dm(start);
+  if (start === today && e === addDays(today, 3)) return "Azi – 3 zile";
+  const a = parse(start);
+  const b = parse(e);
+  return a.getMonth() === b.getMonth() ? `${a.getDate()} – ${b.getDate()} ${SHORT[b.getMonth()]}` : `${dm(start)} – ${dm(e)}`;
+}
+
+/* ------------------------------------------------------------------ camion, greutate */
+
+const TRUCK_INFO: Record<string, [string, string]> = {
+  prelata: ["Prelată standard", "13,6 m · până la 24 t"],
+  mega: ["Mega trailer", "3 m înălțime la interior"],
+  frigorific: ["Frigorific", "temperatură controlată"],
+  box: ["Box / furgon închis", "marfă la adăpost"],
+  platforma: ["Platformă", "încărcare pe laterală sau macara"],
+  duba: ["Dubă", "sub 3,5 t"],
+  izoterm: ["Izoterm", "păstrează temperatura"],
+  jumbo: ["Jumbo / tandem", "volum mare"],
+  "trailer-jos": ["Trailer jos / agabaritic", "utilaje, încărcături înalte"],
+  basculanta: ["Basculantă", "vrac: nisip, pietriș, cereale"],
+  cisterna: ["Cisternă", "lichide"],
+  container: ["Portcontainer", "containere maritime"],
+  "auto-transportor": ["Transportor auto", "autoturisme"],
+};
+const TRUCK_FIRST = ["prelata", "mega", "frigorific", "box", "platforma", "duba"];
+const TRUCK_ORDER = [...TRUCK_FIRST, ...VEHICLES.map((v) => v.slug).filter((s) => !TRUCK_FIRST.includes(s))];
+const truckName = (slug: string) => TRUCK_INFO[slug]?.[0] ?? VEHICLES.find((v) => v.slug === slug)?.short ?? slug;
+
+const WEIGHTS: { t: string; name: string; sub: string; fill: number }[] = [
+  { t: "", name: "Oricât", sub: "", fill: 0 },
+  { t: "3.5", name: "până la 3,5 t", sub: "dubă", fill: 0.15 },
+  { t: "7.5", name: "până la 7,5 t", sub: "camion mic", fill: 0.31 },
+  { t: "12", name: "până la 12 t", sub: "camion mediu", fill: 0.5 },
+  { t: "24", name: "până la 24 t", sub: "TIR complet", fill: 1 },
+];
+const tons = (t: string) => `${t.replace(".", ",")} t`;
+
+/* ------------------------------------------------------------------ orașe */
+
+const EU_CHIPS = ["RO", "DE", "IT", "FR", "HU", "NL"];
+const NORM_CITIES = CITIES.map((c) => ({ ...c, n: normalize(c.name) }));
+const NORM_COUNTRIES = COUNTRIES.map((c) => ({ ...c, n: normalize(c.name) }));
+
+type CityOption = { kind: "city"; name: string; country: string; count?: number } | { kind: "country"; code: string; name: string };
+
+function searchPlaces(q: string): CityOption[] {
+  const n = normalize(q);
+  if (!n) return [];
+  const countries = NORM_COUNTRIES.filter((c) => c.n.startsWith(n) || c.code.toLowerCase() === n)
+    .slice(0, 2)
+    .map((c): CityOption => ({ kind: "country", code: c.code, name: c.name }));
+  const starts = NORM_CITIES.filter((c) => c.n.startsWith(n));
+  const contains = NORM_CITIES.filter((c) => !c.n.startsWith(n) && c.n.includes(n));
+  const cities = [...starts, ...contains].slice(0, 7).map((c): CityOption => ({ kind: "city", name: c.name, country: c.country }));
+  return [...countries, ...cities];
+}
+
+/** Evidențiază partea scrisă de utilizator în numele orașului. */
+function Highlight({ text, q }: { text: string; q: string }) {
+  const i = normalize(text).indexOf(normalize(q));
+  if (!q || i < 0) return <>{text}</>;
   return (
-    <label
-      onClick={open}
-      className="group/f relative flex min-w-[40%] cursor-pointer items-center gap-[11px] rounded-[10px] px-3 transition-colors hover:bg-[#F7F4F3] sm:min-w-0 sm:px-4"
+    <>
+      {text.slice(0, i)}
+      <span className="text-brand-600">{text.slice(i, i + q.trim().length)}</span>
+      {text.slice(i + q.trim().length)}
+    </>
+  );
+}
+
+/* ------------------------------------------------------------------ câmpul */
+
+function Field({
+  label,
+  icon,
+  open,
+  grow = 1,
+  fieldRef,
+  onClick,
+  children,
+}: {
+  label: string;
+  icon: ReactNode;
+  open: boolean;
+  grow?: number;
+  fieldRef: RefObject<HTMLDivElement | null>;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      ref={fieldRef}
+      onClick={onClick}
+      className={`group/f relative flex h-[46px] min-w-[40%] cursor-pointer items-center gap-[11px] rounded-[10px] px-3 transition-colors sm:min-w-0 sm:px-4 ${
+        open ? "bg-[#F7F4F3] shadow-[inset_0_0_0_2px_#2A2E35]" : "hover:bg-[#F7F4F3]"
+      }`}
       style={{ flex: grow }}
     >
-      {icon}
+      {/* pe telefon iconița cedează locul valorii, ca să nu se taie textul */}
+      <span className="hidden sm:flex">{icon}</span>
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="text-[11px] font-extrabold tracking-[0.08em] text-[#4A4F57] uppercase">{label}</span>
         {children}
       </span>
-      <span aria-hidden className="pointer-events-none absolute top-1/2 right-2 flex size-6 -translate-y-1/2 items-center justify-center rounded-md bg-[#EEEAE9] text-graphite transition-colors group-hover/f:bg-graphite group-hover/f:text-white">
-        <ChevronDown width={15} height={15} strokeWidth={2.6} />
+      <span
+        aria-hidden
+        className={`pointer-events-none absolute top-1/2 right-2 flex size-6 -translate-y-1/2 items-center justify-center rounded-md transition-colors ${
+          open ? "bg-graphite text-white" : "bg-[#EEEAE9] text-graphite group-hover/f:bg-graphite group-hover/f:text-white"
+        }`}
+      >
+        <ChevronDown width={15} height={15} strokeWidth={2.6} className={`transition-transform ${open ? "rotate-180" : ""}`} />
       </span>
-    </label>
+    </div>
   );
 }
 
+const valueText = (empty: boolean) =>
+  `block w-full truncate pr-8 text-left text-base ${empty ? "font-semibold text-[#5E636B]" : "font-bold text-ink"}`;
 const input =
-  "w-full min-w-0 cursor-pointer bg-transparent p-0 pr-8 text-base font-bold text-ink outline-none placeholder:font-semibold placeholder:text-[#5E636B] [&::-webkit-calendar-picker-indicator]:hidden";
+  "w-full min-w-0 cursor-pointer bg-transparent p-0 pr-8 text-base font-bold text-ellipsis text-ink outline-none placeholder:font-semibold placeholder:text-[#5E636B]";
 const Div = () => <span aria-hidden className="hidden h-[34px] w-px shrink-0 bg-[#D9D2D0] sm:block" />;
 
-/**
- * Căutarea din hero: comutator „caut camion / caut marfă”, rută, dată, camion, greutate.
- * Formular GET obișnuit (merge și fără JavaScript), trimis spre /camioane sau /marfa.
- */
-export function HeroSearch({ loads, trucks }: { loads: number; trucks: number }) {
-  const [role, setRole] = useState<"camion" | "marfa">("camion");
-  const fromRef = useRef<HTMLInputElement>(null);
-  const toRef = useRef<HTMLInputElement>(null);
-  const action = role === "camion" ? "/camioane" : "/marfa";
+/* ------------------------------------------------------------------ fereastra cu orașe */
 
-  const swap = () => {
-    if (!fromRef.current || !toRef.current) return;
-    const a = fromRef.current.value;
-    fromRef.current.value = toRef.current.value;
-    toRef.current.value = a;
+function CityPicker({
+  which,
+  place,
+  typed,
+  top,
+  unit,
+  active,
+  setActive,
+  onPick,
+  onLocate,
+  locating,
+}: {
+  which: "from" | "to";
+  place: Place;
+  typed: boolean;
+  top: TopCity[];
+  unit: (n: number) => string;
+  active: number;
+  setActive: (i: number) => void;
+  onPick: (p: Place) => void;
+  onLocate?: () => void;
+  locating: "idle" | "busy" | "error";
+}) {
+  const q = typed ? place.text.trim() : "";
+  const counts = useMemo(() => new Map(top.map((c) => [`${c.country}:${normalize(c.name)}`, c.n])), [top]);
+  const options = useOptions(q, top);
+  const pick = (o: CityOption) =>
+    onPick(o.kind === "city" ? { text: o.name, country: o.country } : { text: o.name, country: o.code, whole: true });
+  const isSel = (o: CityOption) =>
+    !typed && (o.kind === "city" ? !place.whole && place.text === o.name && place.country === o.country : !!place.whole && place.country === o.code);
+
+  const row = (o: CityOption, i: number) => {
+    const count = o.kind === "city" ? (o.count ?? counts.get(`${o.country}:${normalize(o.name)}`)) : undefined;
+    return (
+      <PickRow key={o.kind + o.name} id={`${which}-opt-${i}`} selected={isSel(o)} active={active === i} onHover={() => setActive(i)} onPick={() => pick(o)}>
+        <CountryBadge code={o.kind === "city" ? o.country : o.code} />
+        <span className="min-w-0 flex-1 truncate text-[15px] font-bold">
+          <Highlight text={o.name} q={q} />
+          {o.kind === "country" && <span className="font-medium text-[#5E636B]"> · toată țara</span>}
+        </span>
+        {count ? <span className="shrink-0 text-xs font-bold text-[#5E636B]">{unit(count)}</span> : null}
+      </PickRow>
+    );
   };
 
-  const tab = (value: "camion" | "marfa", icon: ReactNode, text: string, short: string) => {
+  if (q) {
+    return (
+      <div role="listbox" id={`${which}-list`} className="py-1.5">
+        {options.length ? (
+          options.map(row)
+        ) : (
+          <p className="px-3.5 py-3 text-sm text-[#4A4F57]">
+            Nu avem „{q}” în listă. Căutăm oricum după ce ai scris; apasă <b>Caută</b>.
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {onLocate && (
+        <button
+          type="button"
+          onClick={onLocate}
+          disabled={locating === "busy"}
+          className="flex h-10 w-full cursor-pointer items-center gap-2.5 border-b border-[#EEE7E6] px-3.5 text-left text-sm font-extrabold text-[#B8190F] hover:bg-[#F7F4F3] disabled:cursor-wait"
+        >
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#C8201A" strokeWidth="2.4" strokeLinecap="round" aria-hidden>
+            <circle cx="12" cy="12" r="4" />
+            <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
+          </svg>
+          {locating === "busy" ? "Caut locația…" : locating === "error" ? "Nu am putut afla locația. Scrie orașul." : "Folosește locația mea"}
+        </button>
+      )}
+      {options.length > 0 && (
+        <div role="listbox" id={`${which}-list`} className="pb-1">
+          <SectionLabel>Cele mai multe oferte</SectionLabel>
+          {options.map(row)}
+        </div>
+      )}
+      <div className="border-t border-[#EEE7E6]">
+        <SectionLabel>Țări din UE</SectionLabel>
+        <div className="flex flex-wrap gap-2 px-3.5 pb-3.5">
+          {EU_CHIPS.map((code) => (
+            <Chip key={code} on={!!place.whole && place.country === code} onClick={() => onPick({ text: countryByCode(code)!.name, country: code, whole: true })}>
+              <CountryBadge code={code} />
+              {countryByCode(code)!.name}
+            </Chip>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Opțiunile din fereastra de orașe: cele cu cele mai multe oferte sau rezultatele căutării. */
+function useOptions(q: string, top: TopCity[]): CityOption[] {
+  return useMemo(
+    () => (q ? searchPlaces(q) : top.map((c): CityOption => ({ kind: "city", name: c.name, country: c.country, count: c.n }))),
+    [q, top],
+  );
+}
+
+/* ------------------------------------------------------------------ calendarul */
+
+function DatePicker({
+  start,
+  end,
+  onChange,
+  onDone,
+}: {
+  start: string | null;
+  end: string | null;
+  onChange: (s: string | null, e: string | null) => void;
+  onDone: () => void;
+}) {
+  const today = iso(new Date());
+  const [view, setView] = useState(() => {
+    const d = parse(start ?? today);
+    return { y: d.getFullYear(), m: d.getMonth() };
+  });
+  const [picking, setPicking] = useState(false);
+  const t = parse(today);
+  const atFirst = view.y === t.getFullYear() && view.m === t.getMonth();
+  const move = (k: number) => setView((v) => ({ y: v.y + Math.floor((v.m + k) / 12), m: (v.m + k + 12) % 12 }));
+
+  const sunday = addDays(today, (7 - t.getDay()) % 7);
+  const quick: [string, string, string][] = [
+    ["Azi", today, today],
+    ["Mâine", addDays(today, 1), addDays(today, 1)],
+    ["Azi – 3 zile", today, addDays(today, 3)],
+    ["Săptămâna asta", today, sunday],
+  ];
+  const e = end ?? start;
+
+  const first = new Date(view.y, view.m, 1);
+  const lead = (first.getDay() + 6) % 7; // luni = prima zi
+  const days = new Date(view.y, view.m + 1, 0).getDate();
+  const cells: (string | null)[] = [...Array(lead).fill(null), ...Array.from({ length: days }, (_, i) => iso(new Date(view.y, view.m, i + 1)))];
+
+  const click = (d: string) => {
+    if (!picking || !start || d < start) {
+      onChange(d, d);
+      setPicking(true);
+    } else {
+      onChange(start, d);
+      setPicking(false);
+    }
+  };
+
+  const nDays = start && e ? Math.round((parse(e).getTime() - parse(start).getTime()) / 86_400_000) + 1 : 0;
+
+  return (
+    <div>
+      <div className="flex flex-wrap gap-2 px-3.5 pt-3 pb-1">
+        {quick.map(([label, a, b]) => (
+          <Chip
+            key={label}
+            on={start === a && e === b}
+            onClick={() => {
+              onChange(a, b);
+              setPicking(false);
+              const d = parse(a);
+              setView({ y: d.getFullYear(), m: d.getMonth() });
+            }}
+          >
+            {label}
+          </Chip>
+        ))}
+      </div>
+      <div className="flex items-center justify-between px-3.5 pt-3 pb-1.5">
+        <button
+          type="button"
+          onClick={() => move(-1)}
+          disabled={atFirst}
+          aria-label="Luna anterioară"
+          className="flex size-[30px] cursor-pointer items-center justify-center rounded-lg border-[1.5px] border-[#D2CBC9] text-ink hover:border-graphite disabled:cursor-default disabled:opacity-35 disabled:hover:border-[#D2CBC9]"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="m15 6-6 6 6 6" />
+          </svg>
+        </button>
+        <span className="text-[15px] font-extrabold text-ink capitalize">
+          {MONTHS[view.m]} {view.y}
+        </span>
+        <button
+          type="button"
+          onClick={() => move(1)}
+          aria-label="Luna următoare"
+          className="flex size-[30px] cursor-pointer items-center justify-center rounded-lg border-[1.5px] border-[#D2CBC9] text-ink hover:border-graphite"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="m9 6 6 6-6 6" />
+          </svg>
+        </button>
+      </div>
+      <div className="grid grid-cols-7 px-3.5 pb-1">
+        {["LU", "MA", "MI", "JO", "VI", "SÂ", "DU"].map((d) => (
+          <span key={d} className="py-1 text-center text-[11px] font-extrabold tracking-[0.06em] text-[#5E636B]">
+            {d}
+          </span>
+        ))}
+        {cells.map((d, i) => {
+          if (!d) return <span key={`x${i}`} className="h-9" />;
+          const past = d < today;
+          const inRange = !!start && !!e && d >= start && d <= e;
+          const edge = d === start || d === e;
+          const single = start === e;
+          const band = !inRange || single ? "" : d === start ? "bg-gradient-to-r from-transparent from-50% to-brand-600/15 to-50%" : d === e ? "bg-gradient-to-r from-brand-600/15 from-50% to-transparent to-50%" : "bg-brand-600/15";
+          return (
+            <span key={d} className={`flex h-9 items-center justify-center ${band}`}>
+              <button
+                type="button"
+                disabled={past}
+                onClick={() => click(d)}
+                aria-pressed={inRange}
+                aria-label={`${parse(d).getDate()} ${MONTHS[view.m]}`}
+                className={`flex size-[34px] items-center justify-center rounded-full text-sm transition-colors ${
+                  edge && inRange
+                    ? "bg-gradient-to-b from-[#DC2A21] to-[#B8190F] font-extrabold text-white"
+                    : past
+                      ? "cursor-default font-semibold text-[#5E636B] line-through opacity-55"
+                      : `cursor-pointer font-bold text-ink hover:bg-[#EEEAE9] ${d === today ? "ring-[1.5px] ring-graphite ring-inset" : ""}`
+                }`}
+              >
+                {parse(d).getDate()}
+              </button>
+            </span>
+          );
+        })}
+      </div>
+      <div className="mt-1.5 flex items-center justify-between gap-3 border-t border-[#EEE7E6] px-3.5 pt-3 pb-3.5">
+        <span className="min-w-0 text-[13px] font-bold text-[#5E636B]">
+          {start ? (
+            <>
+              {dateLabel(start, end)} · <span className="text-ink">{nDays === 1 ? "o zi" : `${nDays} zile`}</span>{" "}
+              <button type="button" onClick={() => onChange(null, null)} className="ml-1 cursor-pointer text-[#B8190F] underline underline-offset-2">
+                Șterge
+              </button>
+            </>
+          ) : (
+            "Alege o zi sau o perioadă"
+          )}
+        </span>
+        <button type="button" onClick={onDone} className="relative shrink-0 cursor-pointer px-5 py-2 text-sm font-extrabold text-white">
+          <span aria-hidden className="absolute inset-0 -skew-x-[14deg] rounded-[4px] bg-gradient-to-b from-[#DC2A21] to-[#B8190F]" />
+          <span className="relative">Gata</span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ căutarea */
+
+/**
+ * Căutarea din hero: comutator „caut camion / caut marfă”, rută, perioadă, camion, greutate.
+ * Fiecare câmp deschide o fereastră proprie (varianta A), cu săgeată spre câmp.
+ * Formular GET spre /camioane sau /marfa; valorile alese pleacă în câmpuri ascunse.
+ */
+export function HeroSearch({ loads, trucks, cities }: { loads: number; trucks: number; cities: TopCities }) {
+  const [role, setRole] = useState<Role>("camion");
+  const [open, setOpen] = useState<Open>(null);
+  const [from, setFrom] = useState<Place>({ text: "" });
+  const [to, setTo] = useState<Place>({ text: "" });
+  const [typed, setTyped] = useState(false);
+  const [active, setActive] = useState(-1);
+  const [locating, setLocating] = useState<"idle" | "busy" | "error">("idle");
+  const [start, setStart] = useState<string | null>(null);
+  const [end, setEnd] = useState<string | null>(null);
+  const [vehicle, setVehicle] = useState("");
+  const [moreTrucks, setMoreTrucks] = useState(false);
+  const [weight, setWeight] = useState("");
+  const [exact, setExact] = useState("");
+
+  const wrap = useRef<HTMLDivElement>(null);
+  const card = useRef<HTMLFormElement>(null);
+  const refs = {
+    from: useRef<HTMLDivElement>(null),
+    to: useRef<HTMLDivElement>(null),
+    date: useRef<HTMLDivElement>(null),
+    truck: useRef<HTMLDivElement>(null),
+    w8: useRef<HTMLDivElement>(null),
+  };
+  const fromInput = useRef<HTMLInputElement>(null);
+  const toInput = useRef<HTMLInputElement>(null);
+
+  const action = role === "camion" ? "/camioane" : "/marfa";
+  const topFrom = role === "camion" ? cities.trucksFrom : cities.loadsFrom;
+  const topTo = role === "camion" ? cities.trucksTo : cities.loadsTo;
+  const unit = (n: number) => (role === "camion" ? roCount(n, "camion", "camioane") : roCount(n, "ofertă", "oferte"));
+
+  // Clic în afară sau Esc închid fereastra.
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: PointerEvent) => {
+      if (wrap.current && !wrap.current.contains(e.target as Node)) setOpen(null);
+    };
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(null);
+    };
+    document.addEventListener("pointerdown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const show = (o: Exclude<Open, null>) => {
+    setActive(-1);
+    setTyped(false);
+    setOpen(o);
+  };
+  const toggle = (o: Exclude<Open, null>) => (open === o ? setOpen(null) : show(o));
+
+  const swap = () => {
+    setFrom(to);
+    setTo(from);
+  };
+
+  const locate = () => {
+    if (!navigator.geolocation) return setLocating("error");
+    setLocating("busy");
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        let best = CITIES[0];
+        let bestKm = Infinity;
+        for (const c of CITIES) {
+          const km = haversineKm(coords.latitude, coords.longitude, c.lat, c.lng);
+          if (km < bestKm) [best, bestKm] = [c, km];
+        }
+        setFrom({ text: best.name, country: best.country });
+        setLocating("idle");
+        setOpen(null);
+      },
+      () => setLocating("error"),
+      { timeout: 8000, maximumAge: 600_000 },
+    );
+  };
+
+  /** Câmpurile de oraș: scrii și lista se filtrează; săgeți sus/jos + Enter aleg. */
+  const cityField = (which: "from" | "to") => {
+    const place = which === "from" ? from : to;
+    const set = which === "from" ? setFrom : setTo;
+    const ref = which === "from" ? fromInput : toInput;
+    const top = which === "from" ? topFrom : topTo;
+    const q = open === which && typed ? place.text.trim() : "";
+    const options = q ? searchPlaces(q) : top.map((c): CityOption => ({ kind: "city", name: c.name, country: c.country }));
+    const onKey = (e: KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault();
+        if (open !== which) return show(which);
+        const n = options.length;
+        if (n) setActive((i) => (e.key === "ArrowDown" ? (i + 1) % n : (i - 1 + n) % n));
+      } else if (e.key === "Enter" && open === which) {
+        // Enter pe o opțiune o alege; fără opțiune aleasă, Enter trimite căutarea
+        const o = options[active];
+        if (o) {
+          e.preventDefault();
+          set(o.kind === "city" ? { text: o.name, country: o.country } : { text: o.name, country: o.code, whole: true });
+          setTyped(false);
+        }
+        setOpen(null);
+      } else if (e.key === "Tab") {
+        setOpen(null);
+      }
+    };
+    return (
+      <Field
+        label={which === "from" ? "De unde" : "Până unde"}
+        grow={1.2}
+        open={open === which}
+        fieldRef={refs[which]}
+        onClick={() => {
+          if (open !== which) show(which);
+          ref.current?.focus();
+        }}
+        icon={<Pin width={20} height={20} className={`shrink-0 ${which === "from" ? "text-brand-600" : "text-graphite"}`} />}
+      >
+        <input
+          ref={ref}
+          value={place.text}
+          onChange={(e) => {
+            set({ text: e.target.value });
+            setTyped(true);
+            setActive(-1);
+            if (open !== which) setOpen(which);
+          }}
+          onFocus={() => open !== which && show(which)}
+          onKeyDown={onKey}
+          placeholder={which === "from" ? "Oraș de încărcare" : "Oriunde în UE"}
+          autoComplete="off"
+          role="combobox"
+          aria-expanded={open === which}
+          aria-controls={`${which}-list`}
+          aria-autocomplete="list"
+          aria-activedescendant={open === which && active >= 0 ? `${which}-opt-${active}` : undefined}
+          aria-label={which === "from" ? "De unde (oraș sau țară)" : "Până unde (oraș sau țară)"}
+          className={input}
+        />
+      </Field>
+    );
+  };
+
+  const listButton = (o: Exclude<Open, null>, text: string, empty: boolean, label: string) => (
+    <button type="button" aria-haspopup="dialog" aria-expanded={open === o} aria-label={`${label}: ${text}`} className={valueText(empty)}>
+      {text}
+    </button>
+  );
+
+  const pickCity = (which: "from" | "to") => (p: Place) => {
+    (which === "from" ? setFrom : setTo)(p);
+    setTyped(false);
+    setOpen(null);
+  };
+
+  const truckList = moreTrucks || (vehicle && !TRUCK_FIRST.includes(vehicle)) ? TRUCK_ORDER : TRUCK_FIRST;
+  const hidden = TRUCK_ORDER.filter((s) => !TRUCK_FIRST.includes(s));
+  const weightText = weight ? (WEIGHTS.some((w) => w.t === weight) ? WEIGHTS.find((w) => w.t === weight)!.name : tons(weight)) : "Oricât";
+  const dLabel = dateLabel(start, end);
+
+  const tab = (value: Role, icon: ReactNode, text: string, short: string) => {
     const on = role === value;
     return (
       <button
         type="button"
         aria-pressed={on}
         onClick={() => setRole(value)}
-        className={`relative flex cursor-pointer items-center gap-2 px-[18px] py-[9px] text-sm ${on ? "font-extrabold text-white" : "font-bold text-[#E6E9EC]"}`}
+        className={`relative flex cursor-pointer items-center gap-2 px-[18px] py-[9px] text-sm ${on ? "font-extrabold text-white" : "font-bold text-white"}`}
       >
         {on && <span aria-hidden className="absolute inset-0 -skew-x-[14deg] rounded-[4px] bg-gradient-to-b from-[#DC2A21] to-[#B8190F]" />}
         <span className="relative flex">{icon}</span>
@@ -82,86 +609,204 @@ export function HeroSearch({ loads, trucks }: { loads: number; trucks: number })
     );
   };
 
+  const hiddenInput = (name: string, value: string | undefined | null) => (value ? <input type="hidden" name={name} value={value} /> : null);
+
   return (
-    <form method="get" action={action} className="overflow-hidden rounded-[18px] shadow-[0_30px_60px_-28px_rgb(0_0_0/0.8)]">
-      {/* Antetul grafit cu dunga roșie (varianta E) */}
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b-[3px] border-brand-600 bg-gradient-to-b from-[#363B43] to-[#1B1E23] px-4 py-3">
-        <div role="group" aria-label="Ce cauți" className="relative inline-flex p-1">
-          <span aria-hidden className="absolute inset-0 -skew-x-[14deg] rounded-[6px] bg-gradient-to-b from-[#363B43] to-[#1B1E23]" />
-          {tab("camion", <Box width={17} height={17} />, "Caut camion pentru marfă", "Caut camion")}
-          {tab("marfa", <Truck width={17} height={17} />, "Caut marfă pentru camion", "Caut marfă")}
-        </div>
-        <Link href={action} className="text-[13px] font-bold text-[#C9CDD2] underline underline-offset-[3px] hover:text-white">
-          Filtre avansate
-        </Link>
-      </div>
+    <div ref={wrap} className="relative">
+      <form
+        ref={card}
+        method="get"
+        action={action}
+        className="overflow-hidden rounded-[18px] border-t-[3px] border-brand-600 shadow-[0_34px_70px_-24px_rgb(0_0_0/0.9)]"
+      >
+        {hiddenInput("oras_din", from.whole ? null : from.text.trim())}
+        {hiddenInput("din", from.country)}
+        {hiddenInput("oras_spre", to.whole ? null : to.text.trim())}
+        {hiddenInput("spre", to.country)}
+        {hiddenInput("data", start)}
+        {hiddenInput("pana", start ? (end ?? start) : null)}
+        {hiddenInput("vehicul", vehicle)}
+        {hiddenInput("tone", weight)}
 
-      <div className="flex flex-col gap-2.5 bg-[#EEEAE9] px-4 pt-3.5 pb-4">
-
-      <div className="flex h-[58px] items-center rounded-xl border-[1.5px] border-[#D2CBC9] bg-white px-1.5">
-        <Field label="De unde" grow={1.2} icon={<Pin width={20} height={20} className="shrink-0 text-brand-600" />}>
-          <input ref={fromRef} name="oras_din" list="hero-orase" placeholder="Oraș de încărcare" autoComplete="off" className={input} />
-        </Field>
-        <button
-          type="button"
-          onClick={swap}
-          aria-label="Inversează ruta"
-          className="flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-full border-[1.5px] border-[#B9B1AF] bg-white text-graphite hover:border-graphite"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <path d="M7 4 3 8l4 4M3 8h14M17 20l4-4-4-4M21 16H7" />
-          </svg>
-        </button>
-        <Field label="Până unde" grow={1.2} icon={<Pin width={20} height={20} className="shrink-0 text-graphite" />}>
-          <input ref={toRef} name="oras_spre" list="hero-orase" placeholder="Oriunde în UE" autoComplete="off" className={input} />
-        </Field>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-y-1 rounded-xl border-[1.5px] border-[#D2CBC9] bg-white px-1.5 py-2 sm:h-[58px] sm:flex-nowrap sm:py-0">
-        <Field label="Data încărcării" grow={1.2} icon={<Calendar width={20} height={20} className="shrink-0 text-graphite" />}>
-          <input type="date" name="data" className={`${input} [color-scheme:light]`} />
-        </Field>
-        <Div />
-        <Field label="Camion" icon={<Truck width={20} height={20} className="shrink-0 text-graphite" />}>
-          <select name="vehicul" defaultValue="" className={`${input} cursor-pointer appearance-none`}>
-            <option value="">Oricare</option>
-            {VEHICLES.map((v) => (
-              <option key={v.slug} value={v.slug}>{v.short}</option>
-            ))}
-          </select>
-        </Field>
-        <Div />
-        <Field label="Greutate" grow={0.85} icon={<Box width={20} height={20} className="shrink-0 text-graphite" />}>
-          <select name="tone" defaultValue="" className={`${input} cursor-pointer appearance-none`}>
-            <option value="">Oricât</option>
-            <option value="3.5">până la 3,5 t</option>
-            <option value="7.5">până la 7,5 t</option>
-            <option value="12">până la 12 t</option>
-            <option value="24">până la 24 t</option>
-          </select>
-        </Field>
-      </div>
-
-      <div className="flex flex-wrap items-center justify-between gap-3 pt-0.5 sm:flex-nowrap">
-        <span className="flex min-w-0 items-center gap-1.5 text-[13px] leading-snug text-[#B8190F]">
-          <Bell width={15} height={15} className="shrink-0" />
-          <Link href="/cont/alerte" className="font-bold text-[#B8190F] hover:text-brand-800">
-            Salvează căutarea și primește alertă pe WhatsApp
+        {/* Antetul din sticlă mată (varianta C): grafit semitransparent, fotografia se vede estompat prin el */}
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/[0.18] bg-gradient-to-b from-[rgb(92_98_108/0.78)] to-[rgb(62_67_75/0.82)] px-4 py-3 backdrop-blur-[16px] backdrop-saturate-[1.2]">
+          <div role="group" aria-label="Ce cauți" className="relative inline-flex p-1">
+            <span aria-hidden className="absolute inset-0 -skew-x-[14deg] rounded-[6px] bg-black/[0.22] shadow-[inset_0_0_0_1px_rgb(255_255_255/0.14)]" />
+            {tab("camion", <Box width={17} height={17} />, "Caut camion pentru marfă", "Caut camion")}
+            {tab("marfa", <Truck width={17} height={17} />, "Caut marfă pentru camion", "Caut marfă")}
+          </div>
+          <Link href={action} className="text-[13px] font-bold text-white underline underline-offset-[3px] hover:text-[#FFD9D6]">
+            Filtre avansate
           </Link>
-        </span>
-        <button type="submit" className="group relative flex shrink-0 cursor-pointer items-center gap-[9px] px-[22px] py-3.5 text-base font-extrabold whitespace-nowrap text-white">
-          <span aria-hidden className="absolute inset-0 -skew-x-[14deg] rounded-[4px] bg-gradient-to-b from-[#DC2A21] to-[#B8190F] shadow-[inset_0_0_0_2px_rgb(255_255_255/0.18)] transition-[filter] group-hover:brightness-110" />
-          <Search width={18} height={18} className="relative" />
-          <span className="relative">{role === "camion" ? `Caută ${roCount(trucks, "camion", "camioane")}` : `Caută ${roCount(loads, "ofertă", "oferte")}`}</span>
-        </button>
-      </div>
-      </div>
+        </div>
 
-      <datalist id="hero-orase">
-        {CITIES.map((c) => (
-          <option key={c.slug} value={c.name} />
-        ))}
-      </datalist>
-    </form>
+        <div className="flex flex-col gap-2.5 bg-[#F7F5F4] px-4 pt-3.5 pb-4">
+          <div className="flex h-[58px] items-center rounded-xl border-[1.5px] border-[#D2CBC9] bg-white px-1.5">
+            {cityField("from")}
+            <button
+              type="button"
+              onClick={swap}
+              aria-label="Inversează ruta"
+              className="flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-full border-[1.5px] border-[#B9B1AF] bg-white text-graphite hover:border-graphite"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M7 4 3 8l4 4M3 8h14M17 20l4-4-4-4M21 16H7" />
+              </svg>
+            </button>
+            {cityField("to")}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-y-1 rounded-xl border-[1.5px] border-[#D2CBC9] bg-white px-1.5 py-[5px] sm:h-[58px] sm:flex-nowrap sm:py-0">
+            <Field label="Data încărcării" grow={1.2} open={open === "date"} fieldRef={refs.date} onClick={() => toggle("date")} icon={<Calendar width={20} height={20} className="shrink-0 text-graphite" />}>
+              {listButton("date", dLabel ?? "Oricând", !dLabel, "Data încărcării")}
+            </Field>
+            <Div />
+            <Field label="Camion" open={open === "truck"} fieldRef={refs.truck} onClick={() => toggle("truck")} icon={<Truck width={20} height={20} className="shrink-0 text-graphite" />}>
+              {listButton("truck", vehicle ? (VEHICLES.find((v) => v.slug === vehicle)?.short ?? vehicle) : "Oricare", !vehicle, "Camion")}
+            </Field>
+            <Div />
+            <Field label="Greutate" grow={0.85} open={open === "w8"} fieldRef={refs.w8} onClick={() => toggle("w8")} icon={<Box width={20} height={20} className="shrink-0 text-graphite" />}>
+              {listButton("w8", weightText, !weight, "Greutate")}
+            </Field>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-0.5 sm:flex-nowrap">
+            <span className="flex min-w-0 items-center gap-1.5 text-[13px] leading-snug text-[#B8190F]">
+              <Bell width={15} height={15} className="shrink-0" />
+              <Link href="/cont/alerte" className="font-bold text-[#B8190F] hover:text-brand-800">
+                Salvează căutarea și primește alertă pe WhatsApp
+              </Link>
+            </span>
+            <button type="submit" className="group relative flex shrink-0 cursor-pointer items-center gap-[9px] px-[22px] py-3.5 text-base font-extrabold whitespace-nowrap text-white">
+              <span aria-hidden className="absolute inset-0 -skew-x-[14deg] rounded-[4px] bg-gradient-to-b from-[#DC2A21] to-[#B8190F] shadow-[inset_0_0_0_2px_rgb(255_255_255/0.18)] transition-[filter] group-hover:brightness-110" />
+              <Search width={18} height={18} className="relative" />
+              <span className="relative">{role === "camion" ? `Caută ${roCount(trucks, "camion", "camioane")}` : `Caută ${roCount(loads, "ofertă", "oferte")}`}</span>
+            </button>
+          </div>
+        </div>
+      </form>
+
+      {(open === "from" || open === "to") && (
+        <HeroPopover key={open} anchor={refs[open]} card={card} width={420} title={open === "from" ? "De unde încarci?" : "Unde descarci?"} onClose={() => setOpen(null)}>
+          <CityPicker
+            which={open}
+            place={open === "from" ? from : to}
+            typed={typed}
+            top={open === "from" ? topFrom : topTo}
+            unit={unit}
+            active={active}
+            setActive={setActive}
+            onPick={pickCity(open)}
+            onLocate={open === "from" ? locate : undefined}
+            locating={locating}
+          />
+        </HeroPopover>
+      )}
+
+      {open === "date" && (
+        <HeroPopover anchor={refs.date} card={card} width={340} title="Când încarci?" onClose={() => setOpen(null)}>
+          <DatePicker
+            start={start}
+            end={end}
+            onChange={(s, e) => {
+              setStart(s);
+              setEnd(e);
+            }}
+            onDone={() => setOpen(null)}
+          />
+        </HeroPopover>
+      )}
+
+      {open === "truck" && (
+        <HeroPopover anchor={refs.truck} card={card} width={330} title="Ce camion cauți?" onClose={() => setOpen(null)}>
+          <div role="listbox" aria-label="Tipul camionului" className="pt-1.5">
+            {["", ...truckList].map((slug) => (
+              <PickRow
+                key={slug || "oricare"}
+                h={46}
+                selected={vehicle === slug}
+                onPick={() => {
+                  setVehicle(slug);
+                  setOpen(null);
+                }}
+              >
+                <Truck width={19} height={19} className={`shrink-0 ${vehicle === slug ? "text-brand-600" : "text-[#5E636B]"}`} />
+                <span className="flex min-w-0 flex-1 flex-col py-1">
+                  <span className="text-[15px] leading-tight font-bold">{slug ? truckName(slug) : "Oricare"}</span>
+                  <span className="text-xs leading-snug font-medium text-[#5E636B]">{slug ? TRUCK_INFO[slug]?.[1] : "toate tipurile de camion"}</span>
+                </span>
+              </PickRow>
+            ))}
+          </div>
+          {truckList === TRUCK_FIRST && (
+            <button
+              type="button"
+              onClick={() => setMoreTrucks(true)}
+              className="mt-1 flex w-full cursor-pointer items-center justify-between border-t border-[#EEE7E6] px-3.5 pt-2.5 pb-3 text-left text-[13px] font-extrabold text-[#B8190F] hover:bg-[#F7F4F3]"
+            >
+              Încă {hidden.length} tipuri: {hidden.slice(0, 2).map((s) => truckName(s).toLowerCase()).join(", ")}…
+              <ChevronDown width={15} height={15} className="shrink-0 text-[#5E636B]" />
+            </button>
+          )}
+        </HeroPopover>
+      )}
+
+      {open === "w8" && (
+        <HeroPopover anchor={refs.w8} card={card} width={330} title={role === "camion" ? "Cât cântărește marfa?" : "Cât poate duce camionul?"} onClose={() => setOpen(null)}>
+          <div role="listbox" aria-label="Greutate" className="pt-1.5">
+            {WEIGHTS.map((w) => {
+              const on = weight === w.t && (w.t === "" || exact === "");
+              return (
+                <PickRow
+                  key={w.name}
+                  h={42}
+                  selected={on}
+                  onPick={() => {
+                    setWeight(w.t);
+                    setExact("");
+                    setOpen(null);
+                  }}
+                >
+                  <span className="min-w-0 flex-1 truncate text-[15px] font-bold">
+                    {w.name}
+                    {w.sub && <span className="text-[13px] font-medium text-[#5E636B]"> · {w.sub}</span>}
+                  </span>
+                  <span aria-hidden className="h-1.5 w-16 shrink-0 overflow-hidden rounded-full bg-[#E6E0DE]">
+                    {w.fill > 0 && <span className={`block h-full ${on ? "bg-brand-600" : "bg-graphite"}`} style={{ width: `${w.fill * 100}%` }} />}
+                  </span>
+                </PickRow>
+              );
+            })}
+          </div>
+          <label className="mt-1.5 flex items-center gap-2.5 border-t border-[#EEE7E6] px-3.5 pt-3 pb-3.5">
+            <span className="text-[13px] font-bold text-[#5E636B]">Exact:</span>
+            <span className="flex h-[34px] flex-1 items-center rounded-lg border-[1.5px] border-[#D2CBC9] bg-white px-2.5 focus-within:border-graphite">
+              <input
+                type="number"
+                inputMode="decimal"
+                min={0.1}
+                max={40}
+                step={0.1}
+                value={exact}
+                onChange={(e) => {
+                  setExact(e.target.value);
+                  const v = Number.parseFloat(e.target.value);
+                  setWeight(v > 0 && v <= 40 ? String(Math.round(v * 10) / 10) : "");
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    setOpen(null);
+                  }
+                }}
+                placeholder="ex. 18"
+                className="w-full min-w-0 bg-transparent text-sm font-bold text-ink outline-none placeholder:font-semibold placeholder:text-[#8A8F96] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
+              />
+              <span className="text-sm font-bold text-[#5E636B]">tone</span>
+            </span>
+          </label>
+        </HeroPopover>
+      )}
+    </div>
   );
 }

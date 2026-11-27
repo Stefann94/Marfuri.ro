@@ -6,6 +6,7 @@ import {
 } from "@/components/icons";
 import { Dropdown, MobileTabBar, NavLink, navTrack, skewBg } from "./NavClient";
 import { LiveCount, LiveTicker } from "./LiveTicker";
+import { RoText } from "@/components/brand/RoText";
 
 export type NavNotification = { id: string; title: string; text: string; when: string; unread: boolean; kind: "load" | "offer" | "doc" | "rating" };
 export type NavUser = { company: string; initials: string; verified: boolean; unreadMessages: number; notifications: NavNotification[] };
@@ -58,15 +59,15 @@ function MenuRow({ href, icon, title, text, highlight }: { href: string; icon: R
 function ToolsMenu() {
   return (
     <Dropdown
-      buttonClass="group relative flex flex-col justify-center px-3.5 py-[7px] text-left"
+      buttonClass="group relative flex flex-col justify-center px-3.5 py-[7px] text-left wide:px-3 xwide:px-3.5"
       trigger={
         <>
           <span aria-hidden className={`${skewBg} group-hover:bg-white/10 group-aria-expanded:bg-white/10`} />
-          <span className="relative flex items-center gap-1 font-logo text-[13px] tracking-[0.03em] text-[#E6E9EC] uppercase">
+          <span className="relative flex items-center gap-1 font-logo text-[13px] wide:text-[14px] xwide:text-[15px] tracking-[0.03em] text-[#E6E9EC] uppercase">
             Instrumente
             <ChevronDown className="transition-transform group-aria-expanded:rotate-180" />
           </span>
-          <span className="relative mt-0.5 text-[11px] font-semibold whitespace-nowrap text-[#9AA0A8]">calculatoare, rute</span>
+          <span className="relative mt-0.5 text-[11px] wide:text-xs font-semibold whitespace-nowrap text-[#9AA0A8]">calculatoare, rute</span>
         </>
       }
       panelClass={`${panel} grid w-[520px] grid-cols-2 gap-1 p-2.5`}
@@ -318,7 +319,9 @@ export function SiteHeader({ user, sticky = true }: { user: NavUser | null; stic
             {!user && (
               <>
                 <NavSep />
-                <NavLink href="/preturi" sub="publicare gratuită">Prețuri</NavLink>
+                <NavLink href="/preturi" sub="publicare gratuită">
+                  <RoText>Prețuri</RoText>
+                </NavLink>
               </>
             )}
           </nav>

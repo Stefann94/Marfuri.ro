@@ -19,12 +19,12 @@ export function NavLink({ href, children, sub }: { href: string; children: React
   const path = usePathname();
   const active = path === href || path.startsWith(`${href}/`);
   return (
-    <Link href={href} aria-current={active ? "page" : undefined} className="group relative flex flex-col justify-center px-3.5 py-[7px]">
+    <Link href={href} aria-current={active ? "page" : undefined} className="group relative flex flex-col justify-center px-3.5 py-[7px] wide:px-3 xwide:px-3.5">
       <span aria-hidden className={`${skewBg} ${active ? skewActive : "group-hover:bg-white/10"}`} />
-      <span className={`relative flex items-center gap-1.5 font-logo text-[13px] tracking-[0.03em] uppercase ${active ? "text-white" : "text-[#E6E9EC]"}`}>
+      <span className={`relative flex items-center gap-1.5 font-logo text-[13px] wide:text-[14px] xwide:text-[15px] tracking-[0.03em] uppercase ${active ? "text-white" : "text-[#E6E9EC]"}`}>
         {children}
       </span>
-      {sub && <span className={`relative mt-0.5 text-[11px] font-semibold whitespace-nowrap ${active ? "text-white/85" : "text-[#9AA0A8]"}`}>{sub}</span>}
+      {sub && <span className={`relative mt-0.5 text-[11px] wide:text-xs font-semibold whitespace-nowrap ${active ? "text-white/85" : "text-[#9AA0A8]"}`}>{sub}</span>}
     </Link>
   );
 }

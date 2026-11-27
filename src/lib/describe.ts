@@ -11,6 +11,8 @@ export function describeFilters(f: Partial<Filters>) {
   if (from) parts.push(`din ${from}`);
   if (to) parts.push(`spre ${to}`);
   if (f.vehicle) parts.push(`· ${vehicleShort(f.vehicle)}`);
-  if (f.date) parts.push(`· de la ${fmtDate(f.date)}`);
+  if (f.date && f.dateTo) parts.push(f.dateTo === f.date ? `· pe ${fmtDate(f.date)}` : `· ${fmtDate(f.date)} – ${fmtDate(f.dateTo)}`);
+  else if (f.date) parts.push(`· de la ${fmtDate(f.date)}`);
+  if (f.weight) parts.push(`· ${String(f.weight).replace(".", ",")} t`);
   return parts.join(" ");
 }
