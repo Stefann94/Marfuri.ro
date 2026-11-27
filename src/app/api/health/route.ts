@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { db } from "@/db";
+import { db, dbUrl } from "@/db";
 
 export const dynamic = "force-dynamic";
 
@@ -8,7 +8,7 @@ export async function GET() {
   let port = "?";
   let host = "?";
   try {
-    const u = new URL(process.env.DATABASE_URL ?? "");
+    const u = new URL(dbUrl());
     port = u.port || "5432";
     host = u.hostname.replace(/^[^.]+\./, "*.");
   } catch {}
